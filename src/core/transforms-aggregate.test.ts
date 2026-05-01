@@ -632,7 +632,11 @@ describe('Transform Engine - Aggregation Operations', () => {
       expect(result.objects()[0]).toEqual({ region: 'N', total: 10 });
     });
 
-    it('null in groupby column forms its own group', () => {
+    it('CONTRACT: nulls in groupby form their own group (SQL/Arquero default)', () => {
+      // SOUL §7: follow SQL convention. SQL standard groups nulls together
+      // (one group per "null"), and Arquero matches that. pandas drops null
+      // groups by default but lets you keep them; we keep — null is data, not
+      // absence of data. See DATA-SPECIFICATION.md §3 "Null semantics".
       const table = (aq as any).from([
         { region: 'N', sales: 10 },
         { region: null, sales: 20 },

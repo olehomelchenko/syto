@@ -10,6 +10,21 @@ function isSchemaless(table: any): boolean {
   return table.numCols() === 0;
 }
 
+// CONTRACT (SOUL §7): Syto uses `null` for missing data. Arquero produces
+// `undefined` for unmatched cells in left/right/full/lookup joins, and — for
+// full join specifically — coalesces unmatched left null keys into `undefined`
+// in the merged key column. Coerce all `undefined`s to `null` post-join so
+// "missing means null" stays universal across the engine. Same pattern as
+// `handleAggregate` does for `undefined`-on-empty rollups.
+function normalizeUndefinedToNull(table: any): any {
+  if (table.numRows() === 0) return table;
+  const cleanups: Record<string, any> = {};
+  for (const col of table.columnNames()) {
+    cleanups[col] = (aq as any).escape((d: any) => (d[col] === undefined ? null : d[col]));
+  }
+  return table.derive(cleanups);
+}
+
 export function handleJoin(
   table: any,
   transform: FullTransformStep,
@@ -34,9 +49,12 @@ export function handleJoin(
   }
 
   if (how === 'inner' || !how) return table.join(rightTable, keys, null, joinOptions);
-  if (how === 'left') return table.join_left(rightTable, keys, null, joinOptions);
-  if (how === 'right') return table.join_right(rightTable, keys, null, joinOptions);
-  if (how === 'full') return table.join_full(rightTable, keys, null, joinOptions);
+  if (how === 'left')
+    return normalizeUndefinedToNull(table.join_left(rightTable, keys, null, joinOptions));
+  if (how === 'right')
+    return normalizeUndefinedToNull(table.join_right(rightTable, keys, null, joinOptions));
+  if (how === 'full')
+    return normalizeUndefinedToNull(table.join_full(rightTable, keys, null, joinOptions));
   if (how === 'cross') return table.cross(rightTable, null, joinOptions);
 
   throw new Error(`Unknown join type: ${how}`);
@@ -89,7 +107,7 @@ export function handleLookup(
 
   if (isSchemaless(rightTable)) {
     const derives: Record<string, any> = {};
-    for (const col of values) derives[col] = (aq as any).escape(() => undefined);
+    for (const col of values) derives[col] = (aq as any).escape(() => null);
     return table.derive(derives);
   }
 
@@ -97,7 +115,7 @@ export function handleLookup(
   const rightKeys = on.map((pair: [string, string]) => pair[1]);
   const keys = leftKeys.length === 1 ? [leftKeys[0], rightKeys[0]] : [leftKeys, rightKeys];
 
-  return table.lookup(rightTable, keys, ...values);
+  return normalizeUndefinedToNull(table.lookup(rightTable, keys, ...values));
 }
 
 export const joinHandlers = {

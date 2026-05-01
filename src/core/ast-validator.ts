@@ -1,3 +1,4 @@
+import safeRegex from 'safe-regex2';
 import { ASTNode } from './expression-parser';
 
 /**
@@ -372,14 +373,30 @@ function parseRegexFlags(pattern: string) {
 }
 
 function validateRegexPattern(pattern: string, position: number) {
+  let parsed: { pattern: string; flags: string };
   try {
-    const { pattern: p, flags } = parseRegexFlags(pattern);
-    new RegExp(p, flags);
+    parsed = parseRegexFlags(pattern);
+    new RegExp(parsed.pattern, parsed.flags);
   } catch (e: any) {
     throw {
       message: `Invalid regex pattern: ${e.message}`,
       position,
       type: 'invalid-regex',
+    };
+  }
+
+  // SOUL §1: reject patterns prone to catastrophic backtracking. A pattern
+  // like (a+)+ compiles fine but freezes the tab on long inputs, which would
+  // be a denial-of-service surface for any user (or LLM-generated workflow)
+  // that lands an unsafe pattern. Phase 1 covers literal patterns only;
+  // dynamic patterns (column references) skip validation. See BACKLOG.md
+  // for Phase 2 (RE2-WASM at execution time).
+  if (!safeRegex(parsed.pattern)) {
+    throw {
+      message:
+        'Regex pattern may cause catastrophic backtracking. Avoid nested quantifiers (e.g. (a+)+ or (.*)*).',
+      position,
+      type: 'unsafe-regex',
     };
   }
 }

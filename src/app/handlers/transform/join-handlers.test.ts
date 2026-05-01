@@ -311,6 +311,9 @@ describe('join-handlers', () => {
       expect(analysis.leftNonNullRows).toBe(2);
       expect(analysis.rightTotalRows).toBe(2);
       expect(analysis.rightNonNullRows).toBe(1);
+      // Null counts surface to the editor as a "won't match" warning badge.
+      expect(analysis.leftNulls).toBe(1);
+      expect(analysis.rightNulls).toBe(1);
     });
 
     it('calculates match percentages correctly', async () => {

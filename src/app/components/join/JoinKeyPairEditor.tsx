@@ -98,6 +98,11 @@ export function JoinKeyPairEditor({
                 ⚠️ {t('joinKeyPairEditor.duplicates')}
               </span>
             )}
+            {analysis.leftNulls > 0 && (
+              <span class={joinStyles.warningBadge} title={t('joinKeyPairEditor.nullKeysTooltip')}>
+                ⚠️ {t('joinKeyPairEditor.nullKeys', { count: analysis.leftNulls })}
+              </span>
+            )}
           </div>
           <div class={joinStyles.analysisRow}>
             <span class={joinStyles.analysisLabel}>{t('joinKeyPairEditor.rightLabel')}</span>
@@ -110,6 +115,11 @@ export function JoinKeyPairEditor({
                 title={t('joinKeyPairEditor.duplicatesTooltip')}
               >
                 ⚠️ {t('joinKeyPairEditor.duplicates')}
+              </span>
+            )}
+            {analysis.rightNulls > 0 && (
+              <span class={joinStyles.warningBadge} title={t('joinKeyPairEditor.nullKeysTooltip')}>
+                ⚠️ {t('joinKeyPairEditor.nullKeys', { count: analysis.rightNulls })}
               </span>
             )}
           </div>

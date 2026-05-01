@@ -184,6 +184,7 @@ These have been considered and explicitly excluded:
 
 Ideas worth revisiting if the app gains traction — not currently prioritized:
 
+- **ReDoS protection — Phase 2 (RE2-WASM at execution time)** (Medium) — Phase 1 (`safe-regex2` in `ast-validator`) only screens _literal_ regex patterns at validation. Dynamic patterns (column-reference arguments to `regexp_match`/`regexp_extract`/`regexp_replace`) skip validation entirely and could still freeze a tab on adversarial cell content. RE2-WASM would give true linear-time execution for all patterns. Trade-offs: WASM bundle weight (~150–300 KB), and a worker model would also let us add a true execution timeout. Revisit if anyone reports a frozen tab from a dynamic pattern, or before opening the app to LLM-generated workflows at scale.
 - **Custom Icon Library** (Medium-Large) — Migrate from Iconify CDN to custom hand-drawn SVGs. Value is brand consistency and offline support. Revisit when branding becomes a priority.
 - **Performance Profiling & Web Workers** (Investigation + Medium) — Systematic benchmarking and Web Workers for heavy Arquero transforms. Current soft limit ~100K rows. Revisit when users report real performance issues.
 - **Workflow Format Stability** (Documentation + validation) — Formalize the transform JSON format for cross-version and cross-backend compatibility. Revisit when there's a user base depending on saved workflows or a second execution backend.

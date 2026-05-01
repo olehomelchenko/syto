@@ -27,6 +27,8 @@ export interface KeyPairAnalysis {
   rightTotalRows: number;
   leftNonNullRows: number;
   rightNonNullRows: number;
+  leftNulls: number;
+  rightNulls: number;
   leftMatchPercent: number;
   rightMatchPercent: number;
   leftOnlyPercent: number;
@@ -237,6 +239,8 @@ export async function analyzeJoinKeys(state: JoinDialogState) {
         rightTotalRows: 0,
         leftNonNullRows: 0,
         rightNonNullRows: 0,
+        leftNulls: 0,
+        rightNulls: 0,
         leftMatchPercent: 0,
         rightMatchPercent: 0,
         leftOnlyPercent: 0,
@@ -317,6 +321,8 @@ export async function analyzeJoinKeys(state: JoinDialogState) {
       rightTotalRows,
       leftNonNullRows,
       rightNonNullRows,
+      leftNulls: leftTotalRows - leftNonNullRows,
+      rightNulls: rightTotalRows - rightNonNullRows,
       leftMatchPercent,
       rightMatchPercent,
       leftOnlyPercent,

@@ -317,6 +317,52 @@ describe('AST Validator', () => {
         expect(result.error?.type).toBe('invalid-regex');
         expect(result.error?.message).toContain('Invalid');
       });
+
+      // SOUL §1: literal regex patterns are screened for catastrophic
+      // backtracking (ReDoS) by safe-regex2. These tests pin the canonical
+      // unsafe shapes — change with care, since loosening here means a
+      // pathological pattern can freeze the user's tab.
+      describe('ReDoS protection (Phase 1: literal patterns)', () => {
+        it.each([
+          ['(a+)+$', 'nested + quantifier'],
+          ['(a*)*$', 'nested * quantifier'],
+          ['(.*)*x', 'nested .* quantifier'],
+          ['(.+)+', 'nested .+ quantifier'],
+          ['([a-zA-Z]+)*$', 'class with nested + and *'],
+        ])('should reject catastrophic pattern %s (%s)', (pattern) => {
+          const ast = parseExpression(`regexp_match(region, "${pattern}")`);
+          const result = validateAST(ast, testSchema);
+          expect(result.valid).toBe(false);
+          expect(result.error?.type).toBe('unsafe-regex');
+          expect(result.error?.message).toContain('catastrophic backtracking');
+        });
+
+        it.each([
+          ['^foo$', 'simple anchored literal'],
+          ['[a-z]+', 'single character class with +'],
+          ['\\\\d{3}-\\\\d{4}', 'bounded quantifier'],
+          ['(abc|def)', 'simple alternation'],
+          ['\\\\w+@\\\\w+', 'email-shaped'],
+        ])('should accept safe pattern %s (%s)', (pattern) => {
+          const ast = parseExpression(`regexp_match(region, "${pattern}")`);
+          const result = validateAST(ast, testSchema);
+          expect(result.valid).toBe(true);
+        });
+
+        it('also screens regexp_extract patterns', () => {
+          const ast = parseExpression('regexp_extract(region, "(a+)+$")');
+          const result = validateAST(ast, testSchema);
+          expect(result.valid).toBe(false);
+          expect(result.error?.type).toBe('unsafe-regex');
+        });
+
+        it('also screens regexp_replace patterns', () => {
+          const ast = parseExpression('regexp_replace(region, "(.*)*x", "y")');
+          const result = validateAST(ast, testSchema);
+          expect(result.valid).toBe(false);
+          expect(result.error?.type).toBe('unsafe-regex');
+        });
+      });
     });
 
     describe('date function validation', () => {

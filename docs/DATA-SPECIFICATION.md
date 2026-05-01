@@ -82,6 +82,17 @@ type DataRow = Record<string, any>;
 { "name": "Alice", "age": 30, "active": true }
 ```
 
+### 1.5 Null Semantics
+
+Syto uses `null` to represent missing data — never `undefined`. This is universal across import, transforms, expressions, aggregates, and joins. Per SOUL §7 ("Predictable, Not Clever"), every operation that could plausibly produce `undefined` (Arquero rollup of an empty group, unmatched join cell, etc.) is normalised to `null` at the engine boundary.
+
+Contracts that follow from "null is a value, not absence of a value":
+
+- **Group-by**: rows with `null` in a groupby column form their own group, like SQL standard. Pinned in `transforms-aggregate.test.ts` (`CONTRACT: nulls in groupby form their own group`).
+- **Join keys**: `null` does not match `null`, like SQL standard. Null-keyed rows are dropped from inner/semi joins; kept as unmatched in left/right/full/anti/lookup. Pinned in `transforms-join.test.ts` under "Null-in-join-keys contract". The dialog warns when a candidate key column contains nulls.
+- **Aggregate of all-null**: `sum`/`mean`/`min`/`max`/`median` of an all-null column return `null` (not `undefined`, not `0`). `valid` and `distinct` keep their integer semantics.
+- **Type inference**: `null`, `undefined`, and empty strings are excluded from pattern matching when inferring column types (see §2.3.5).
+
 ---
 
 ## 2. Column Schema

@@ -42,6 +42,7 @@
     "papaparse": "^5.5.1",
     "preact": "^10.28.2",
     "preact-i18next": "^11.8.5",
+    "safe-regex2": "^5.1.1",
     "vega": "^6.2.0",
     "vega-embed": "^7.1.0",
     "vega-lite": "^6.4.2",

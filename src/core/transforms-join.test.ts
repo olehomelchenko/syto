@@ -404,9 +404,9 @@ describe('Transform Engine - Join and Array Operations', () => {
       expect(rows[1].score).toBe(85);
       expect(rows[1].grade).toBe('B');
 
-      // id 3 doesn't match - should have undefined/null
-      expect(rows[2].score).toBeUndefined();
-      expect(rows[2].grade).toBeUndefined();
+      // id 3 doesn't match — unmatched cells are normalised to null (SOUL §7).
+      expect(rows[2].score).toBeNull();
+      expect(rows[2].grade).toBeNull();
     });
 
     it('should lookup single column', () => {
@@ -503,7 +503,10 @@ describe('Transform Engine - Join and Array Operations', () => {
       expect(result.numRows()).toBe(2);
     });
 
-    it('lookup with no matching right rows preserves left cardinality with undefined values', () => {
+    it('lookup with no matching right rows preserves left cardinality with null values', () => {
+      // CONTRACT (SOUL §7): missing data is `null`, never `undefined`. Arquero
+      // emits `undefined` for unmatched lookup cells; the join handler
+      // normalises these to `null` before returning.
       const ctx = {
         sources: [],
         models: [{ id: 'mdl_r', name: 'R', data: [{ id: 999, score: 1 }] }],
@@ -517,8 +520,8 @@ describe('Transform Engine - Join and Array Operations', () => {
       expect(result.numRows()).toBe(2);
       expect(result.columnNames()).toContain('score');
       const rows = result.objects();
-      expect(rows[0].score).toBeUndefined();
-      expect(rows[1].score).toBeUndefined();
+      expect(rows[0].score).toBeNull();
+      expect(rows[1].score).toBeNull();
     });
 
     it('semijoin on empty-but-schemad left returns zero rows', () => {
@@ -659,7 +662,7 @@ describe('Transform Engine - Join and Array Operations', () => {
       expect(result.numRows()).toBe(0);
     });
 
-    it('lookup against a `data: []` model adds undefined-valued columns', () => {
+    it('lookup against a `data: []` model adds null-valued columns', () => {
       const ctx = {
         sources: [],
         models: [{ id: 'mdl_r', name: 'R', data: [] as any[] }],
@@ -674,8 +677,8 @@ describe('Transform Engine - Join and Array Operations', () => {
       expect(result.columnNames()).toContain('score');
       expect(result.columnNames()).toContain('grade');
       const rows = result.objects();
-      expect(rows[0].score).toBeUndefined();
-      expect(rows[0].grade).toBeUndefined();
+      expect(rows[0].score).toBeNull();
+      expect(rows[0].grade).toBeNull();
     });
 
     it('lookup with duplicate keys on right picks one match (1:1 cardinality)', () => {
@@ -730,6 +733,134 @@ describe('Transform Engine - Join and Array Operations', () => {
       // Left has one row with id=1; should produce exactly one row, not three
       const rows = result.objects().filter((r: any) => r.id === 1);
       expect(rows.length).toBe(1);
+    });
+  });
+
+  // CONTRACT (SOUL §7): null does not match null in join keys, following SQL
+  // standard. Arquero's join verbs already implement this; these tests pin it
+  // so a future engine swap (e.g. DuckDB) cannot silently change semantics.
+  // Preserve-side semantics: null-keyed rows are kept where the join would
+  // keep an unmatched row (left/right/full/anti/lookup) and dropped where it
+  // would not (inner/semi).
+  describe('applyTransform() - Null-in-join-keys contract', () => {
+    const leftWithNulls = () =>
+      (aq as any).from([
+        { id: 1, name: 'Alice' },
+        { id: null, name: 'NullLeft' },
+        { id: 2, name: 'Bob' },
+      ]);
+    const rightWithNulls = () => [
+      { id: 1, score: 100 },
+      { id: null, score: 999 },
+      { id: 3, score: 300 },
+    ];
+    const ctx = () => ({
+      sources: [],
+      models: [{ id: 'mdl_r', name: 'R', data: rightWithNulls() }],
+    });
+
+    it('inner join: null-keyed rows on either side are dropped', () => {
+      const result = applyTransform(
+        leftWithNulls(),
+        { join: { right: 'mdl_r', on: [['id', 'id']], how: 'inner' } },
+        ['id', 'name'],
+        ctx()
+      );
+      const rows = result.objects();
+      expect(rows.length).toBe(1);
+      expect(rows[0].id).toBe(1);
+    });
+
+    it('left join: null-keyed left rows are kept, unmatched, with right cols null', () => {
+      const result = applyTransform(
+        leftWithNulls(),
+        { join: { right: 'mdl_r', on: [['id', 'id']], how: 'left' } },
+        ['id', 'name'],
+        ctx()
+      );
+      const rows = result.objects();
+      expect(rows.length).toBe(3);
+      const nullLeft = rows.find((r: any) => r.name === 'NullLeft');
+      expect(nullLeft.id).toBeNull();
+      expect(nullLeft.score).toBeNull();
+      const bob = rows.find((r: any) => r.name === 'Bob');
+      expect(bob.score).toBeNull();
+    });
+
+    it('right join: null-keyed right rows are kept, unmatched, with left cols null', () => {
+      const result = applyTransform(
+        leftWithNulls(),
+        { join: { right: 'mdl_r', on: [['id', 'id']], how: 'right' } },
+        ['id', 'name'],
+        ctx()
+      );
+      const rows = result.objects();
+      expect(rows.length).toBe(3);
+      const nullRight = rows.find((r: any) => r.score === 999);
+      expect(nullRight.id).toBeNull();
+      expect(nullRight.name).toBeNull();
+    });
+
+    it('full join: null-keyed rows from both sides kept as unmatched', () => {
+      const result = applyTransform(
+        leftWithNulls(),
+        { join: { right: 'mdl_r', on: [['id', 'id']], how: 'full' } },
+        ['id', 'name'],
+        ctx()
+      );
+      const rows = result.objects();
+      // 1 match (id=1) + 2 left-only (id=null, id=2) + 2 right-only (id=null, id=3) = 5
+      expect(rows.length).toBe(5);
+      // All "missing" cells must be null (not undefined) — SOUL §7.
+      for (const r of rows) {
+        for (const v of Object.values(r)) {
+          expect(v).not.toBeUndefined();
+        }
+      }
+      // Left null-keyed row should appear with id=null (not undefined) and score=null.
+      const leftNullRow = rows.find((r: any) => r.name === 'NullLeft');
+      expect(leftNullRow.id).toBeNull();
+      expect(leftNullRow.score).toBeNull();
+      // Right null-keyed row should appear with id=null and name=null.
+      const rightNullRows = rows.filter((r: any) => r.score === 999 && r.name === null);
+      expect(rightNullRows.length).toBe(1);
+    });
+
+    it('semijoin: null-keyed left rows are dropped (no match in right)', () => {
+      const result = applyTransform(
+        leftWithNulls(),
+        { semijoin: { right: 'mdl_r', on: [['id', 'id']] } },
+        ['id', 'name'],
+        ctx()
+      );
+      const rows = result.objects();
+      expect(rows.length).toBe(1);
+      expect(rows[0].id).toBe(1);
+    });
+
+    it('antijoin: null-keyed left rows are kept (no match in right)', () => {
+      const result = applyTransform(
+        leftWithNulls(),
+        { antijoin: { right: 'mdl_r', on: [['id', 'id']] } },
+        ['id', 'name'],
+        ctx()
+      );
+      const rows = result.objects();
+      expect(rows.length).toBe(2);
+      expect(rows.map((r: any) => r.id).sort()).toEqual([2, null]);
+    });
+
+    it('lookup: null-keyed left rows get null in lookup values', () => {
+      const result = applyTransform(
+        leftWithNulls(),
+        { lookup: { right: 'mdl_r', on: [['id', 'id']], values: ['score'] } },
+        ['id', 'name'],
+        ctx()
+      );
+      const rows = result.objects();
+      expect(rows.length).toBe(3);
+      const nullLeft = rows.find((r: any) => r.name === 'NullLeft');
+      expect(nullLeft.score).toBeNull();
     });
   });
 

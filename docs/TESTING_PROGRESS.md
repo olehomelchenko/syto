@@ -13,7 +13,7 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 | Tier 1 audit (transform core, expression language, schema, integration, e2e) | ✅ done       |
 | Tier 2 audit (handlers, services, components)                                | ⏸ not started |
 | Batch 1 — deterministic edge cases                                           | ✅ done       |
-| Batch 2 — contract decisions + ReDoS                                         | ⏸ queued      |
+| Batch 2 — contract decisions + ReDoS                                         | ✅ done       |
 | Batch 3 — adversarial fixtures + multi-step composition                      | ⏸ queued      |
 | Property-based testing (fast-check)                                          | ⏸ not started |
 
@@ -48,12 +48,20 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 
 ## Batch 2 — Contract decisions + security
 
-Needs a call from a human on the intended contract before tests can be written.
+### Done (2026-05-01)
 
-- [ ] **Null in join keys.** SQL semantics: `NULL ≠ NULL` → no match. Current Syto behaviour: unknown, untested. Decide and pin with tests for semijoin/antijoin/lookup.
-- [ ] **Null in group-by column.** Tested in Batch 1 that nulls form their own group. Decide if that's the intended contract (vs. dropped, vs. error). Probably keep, but document.
-- [ ] **ReDoS in `ast-validator.ts`.** The validator checks regex _syntax_ but not complexity. Patterns like `(a+)+b` or `(.*)*` pass validation and can freeze a tab at runtime. **Code change, not just a test.** Options: blocklist of known catastrophic patterns, complexity heuristic, RE2-backed engine. Then add tests for rejected and accepted patterns.
-- [ ] **Aggregate-over-all-null for `mean` / `min` / `max`.** Extension of the Batch 1 surprise; decide uniformly.
+- **Null in join keys** (`src/core/transforms-join.test.ts` — `Null-in-join-keys contract`): pinned SQL-correct semantics for inner/left/right/full/semi/anti/lookup. Arquero already implements "null doesn't match null" — no engine change needed. +7 contract tests.
+- **`undefined → null` normalisation in joins** (`src/core/transforms/handlers/join.ts`): post-process `left`/`right`/`full`/`lookup` outputs (and the schemaless-lookup path) to coerce Arquero's `undefined` to `null`. Same pattern as the aggregate handler. Fixes the asymmetric full-join key-column quirk where unmatched left null keys came back as `undefined`. Two existing tests updated.
+- **Null-key warning UX** (`src/app/handlers/transform/join-handlers.ts`, `src/app/components/join/JoinKeyPairEditor.tsx`): `KeyPairAnalysis` now exposes `leftNulls`/`rightNulls` counts; `JoinKeyPairEditor` surfaces a warning badge ("⚠️ N nulls") next to the existing duplicates badge with a tooltip explaining SQL semantics. i18n strings added to en/uk `dialogs.json` (with plural forms).
+- **Null in group-by** (`src/core/transforms/handlers/aggregate.ts`, `transforms-aggregate.test.ts`): kept current behaviour (nulls form their own group). Added `// CONTRACT:` comment in the handler and renamed the pinning test to `CONTRACT: nulls in groupby form their own group`. Documented in `DATA-SPECIFICATION.md` §1.5 "Null Semantics" alongside the join contract.
+- **ReDoS in `ast-validator.ts`** (`src/core/ast-validator.ts`): added `safe-regex2` dependency; `validateRegexPattern` now rejects literal patterns with catastrophic-backtracking shapes (nested quantifiers like `(a+)+`, `(.*)*`). +12 tests covering rejected and accepted patterns across `regexp_match` / `regexp_extract` / `regexp_replace`. New error type: `unsafe-regex`.
+- **All-null aggregate contract** — already resolved in Batch 1 (the `aggregate.ts` `undefined → null` cleanup was uniform across all rollups, so `mean`/`min`/`max` were covered alongside `sum`). Tests already pin all five at `transforms-aggregate.test.ts:654-708`.
+
+**Delta:** +20 tests (2277 → 2296). Suite still ≈13 s. All green. Typecheck clean.
+
+### Out of scope (filed)
+
+- **Phase 2 ReDoS coverage** — RE2-WASM at execution time, covering dynamic patterns (column references) which Phase 1 cannot validate. Filed to `BACKLOG.md`.
 
 ---
 
@@ -110,3 +118,4 @@ Conventions that emerged while writing Batch 1 have been promoted into [DEVELOPM
 - **2026-04-24** — Fixed empty-`data` model bug in semijoin/antijoin/lookup. `handleJoin` (inner/left/right/full/cross) still needs the same guard — queued as follow-up. All-null-sum contract still awaiting decision.
 - **2026-04-24** — Added SOUL.md §7 "Predictable, Not Clever" and resolved all-null aggregate contract to `null` for sum/mean/min/max/median (integer counts preserved for valid/distinct). Promoted TESTING_STRATEGY.md and TESTING_PROGRESS.md to first-class docs in CLAUDE.md, AGENTS.md, and quick-reference tables.
 - **2026-04-24** — Closed Batch 1. Extended the `isSchemaless(right)` guard to `handleJoin` (inner/left/right/full/cross) with per-`how` semantics; +5 tests (2272 → 2277). Ready to start Batch 2 (null-in-join-keys, null-in-group-by, ReDoS in ast-validator, uniform all-null aggregate contract).
+- **2026-05-01** — Closed Batch 2. Pinned null-in-join-keys (SQL-correct, no engine change), pinned null-in-group-by, added `undefined → null` normalisation to join outputs, surfaced null-key warning in the join dialog, and shipped Phase 1 ReDoS protection via `safe-regex2` in `ast-validator`. +20 tests (2277 → 2296). Phase 2 RE2-WASM filed to BACKLOG. Ready for Batch 3 (adversarial fixtures, multi-step composition, Tier 2 audit).

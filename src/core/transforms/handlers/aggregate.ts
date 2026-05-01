@@ -16,6 +16,9 @@ export function handleAggregate(table: any, transform: FullTransformStep): any {
 
   let groupedTable = table;
   if (groupby && groupby.length > 0) {
+    // CONTRACT (SOUL §7): nulls in a groupby column form their own group,
+    // following SQL standard and Arquero's default. Null is treated as a
+    // value, not absence of a value. Pinned in transforms-aggregate.test.ts.
     groupedTable = table.groupby(groupby);
   }
 
