@@ -226,6 +226,7 @@ Key conventions:
 - Use Arquero verbs when possible (`filter`, `derive`, `select`, `groupby`, etc.)
 - Throw descriptive errors for invalid inputs
 - Handle null/undefined values gracefully
+- **Normalise Arquero `undefined` → `null` at handler output.** Per SOUL §7 and [DATA-SPECIFICATION §1.5](DATA-SPECIFICATION.md), Syto's missing-data sentinel is `null` everywhere. Arquero leaks `undefined` from at least three places: rollups of empty/all-null groups (`sum`, `mean`, `min`, `max`, `median`), unmatched cells in `left`/`right`/`full`/`lookup` joins, and the merged key column of unmatched rows in `join_full`. If your handler wraps an Arquero verb that can produce these, derive a post-process step that coerces `undefined` to `null` across the affected columns. See `handlers/aggregate.ts` and `handlers/join.ts` for the canonical patterns.
 - **Transforms that generate new column names** (split, unroll, spread, pivot, describe-style output) **must call `assertNoCollisions`** from `src/core/transforms/unique-names.ts` before mutating the table. Arquero's `derive`/`spread`/`pivot` silently overwrite existing columns that happen to share a generated name, and that's a data-loss bug. Use `pickUniqueName` for internal scratch columns.
 
 **Two expression styles in transforms:**
