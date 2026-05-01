@@ -37,7 +37,7 @@ export class ImportService {
       throw new Error('Column names cannot be empty.');
     }
 
-    const cleanData = JSON.parse(JSON.stringify(data));
+    const cleanData = data;
 
     // Ensure unique source name across all sources
     const uniqueSourceName = NameService.suggestUniqueName(sourceName, (n) =>
