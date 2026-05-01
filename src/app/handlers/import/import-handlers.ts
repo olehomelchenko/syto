@@ -48,6 +48,19 @@ import {
 
 export { resolvePath, getSuggestedKeys, flattenData, serializeNestedData, resolveDuplicateHeaders };
 
+const LARGE_FILE_WARNING_BYTES = 100 * 1024 * 1024;
+
+async function confirmLargeFileImport(file: File): Promise<boolean> {
+  if (file.size <= LARGE_FILE_WARNING_BYTES) return true;
+  const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+  const thresholdMb = LARGE_FILE_WARNING_BYTES / (1024 * 1024);
+  return confirm(
+    i18n.t('confirms.largeFileWarning', { ns: 'common', size: sizeMb, threshold: thresholdMb }),
+    i18n.t('confirms.largeFileTitle', { ns: 'common' }),
+    i18n.t('buttons.continue', { ns: 'common' })
+  );
+}
+
 /**
  * Compute schema diff for preview
  */
@@ -208,7 +221,9 @@ export async function promptPaste(): Promise<void> {
 // Import Dialog Functions
 // ============================================================================
 
-export function showImportDialog(file: File): void {
+export async function showImportDialog(file: File): Promise<void> {
+  if (!(await confirmLargeFileImport(file))) return;
+
   AppStore.importFileData.value = { file };
 
   const fileName = file.name.toLowerCase();

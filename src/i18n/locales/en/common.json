@@ -169,7 +169,9 @@
     "overwriteColumns": "Columns {{columns}} already exist. They will be overwritten. Continue?",
     "unsavedChanges": "You have unsaved changes. Are you sure you want to discard them?",
     "confirmReplacement": "Confirm replacement",
-    "schemaDiffWarning": "⚠️ Warning: The new data is missing {{count}} column(s) that exist in the current source:\n\n{{columns}}\n\nDependent models may break when recomputed. Are you sure you want to proceed?"
+    "schemaDiffWarning": "⚠️ Warning: The new data is missing {{count}} column(s) that exist in the current source:\n\n{{columns}}\n\nDependent models may break when recomputed. Are you sure you want to proceed?",
+    "largeFileTitle": "Large file",
+    "largeFileWarning": "This file is {{size}} MB. Syto can't guarantee reliable import or autosave above {{threshold}} MB — the browser engine is optimized for datasets that fit comfortably in RAM. Continue anyway?"
   },
   "aria": {
     "headerTabs": "Main navigation tabs"
