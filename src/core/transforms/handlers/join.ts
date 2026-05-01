@@ -26,6 +26,13 @@ export function handleJoin(
   const joinOptions = { suffix: joinSuffixes };
   const keys = leftKeys.length === 1 ? [leftKeys[0], rightKeys[0]] : [leftKeys, rightKeys];
 
+  if (isSchemaless(rightTable)) {
+    // inner/right/cross: nothing can match an empty right → empty result with left schema.
+    // left/full: every left row is unmatched, and there are no right columns to add → left unchanged.
+    if (how === 'left' || how === 'full') return table;
+    return table.filter(() => false);
+  }
+
   if (how === 'inner' || !how) return table.join(rightTable, keys, null, joinOptions);
   if (how === 'left') return table.join_left(rightTable, keys, null, joinOptions);
   if (how === 'right') return table.join_right(rightTable, keys, null, joinOptions);

@@ -55,16 +55,6 @@ Import multiple files at once via multi-select file picker (`<input multiple>`) 
 
 **Technical notes**: No new dependencies. Browser APIs (`FileList`, `DataTransferItemList`) natively support multi-file selection. Schema mismatches across files are handled by existing `concat`/`union` column alignment logic.
 
-### Empty-Model Crash in `handleJoin`
-
-**Status**: Planned
-**Effort**: Small
-**Origin**: Surfaced during Batch 1 of the [testing progress plan](TESTING_PROGRESS.md)
-
-Inner / left / right / full / cross joins against a model with `data: []` throw `Invalid column reference` — the right table built from empty data is schema-less and Arquero's join-key parser can't resolve columns. `handleSemijoin`, `handleAntijoin`, and `handleLookup` were fixed in Batch 1 to short-circuit via an `isSchemaless(right)` check; `handleJoin` (`src/core/transforms/handlers/join.ts`) has the same bug but wasn't in the Tier 1 audit scope.
-
-**Fix**: Apply the same guard with per-`how` semantics — inner/right/cross → empty result; left/full → left table unchanged with right-side columns added as `undefined`. Pair with tests in `transforms-join.test.ts`.
-
 ---
 
 ## UI/UX Enhancements

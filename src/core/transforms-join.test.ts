@@ -573,6 +573,92 @@ describe('Transform Engine - Join and Array Operations', () => {
       ]);
     });
 
+    // Inner/right/cross joins against a schema-less right have no possible
+    // matches, so the result is empty-but-schemad with the left's columns.
+    // Left/full joins have nothing to add from the right, so the left table
+    // is returned unchanged. Without the guard, Arquero throws "Invalid column
+    // reference" when it tries to parse keys against a zero-column right.
+    it('inner join against a `data: []` model returns empty result with left schema', () => {
+      const ctx = {
+        sources: [],
+        models: [{ id: 'mdl_r', name: 'R', data: [] as any[] }],
+      };
+      const result = applyTransform(
+        left(),
+        { join: { right: 'mdl_r', on: [['id', 'id']], how: 'inner' } },
+        ['id', 'name'],
+        ctx
+      );
+      expect(result.numRows()).toBe(0);
+      expect(result.columnNames()).toEqual(['id', 'name']);
+    });
+
+    it('left join against a `data: []` model returns the left table unchanged', () => {
+      const ctx = {
+        sources: [],
+        models: [{ id: 'mdl_r', name: 'R', data: [] as any[] }],
+      };
+      const result = applyTransform(
+        left(),
+        { join: { right: 'mdl_r', on: [['id', 'id']], how: 'left' } },
+        ['id', 'name'],
+        ctx
+      );
+      expect(result.objects()).toEqual([
+        { id: 1, name: 'Alice' },
+        { id: 2, name: 'Bob' },
+      ]);
+    });
+
+    it('right join against a `data: []` model returns empty result', () => {
+      const ctx = {
+        sources: [],
+        models: [{ id: 'mdl_r', name: 'R', data: [] as any[] }],
+      };
+      const result = applyTransform(
+        left(),
+        { join: { right: 'mdl_r', on: [['id', 'id']], how: 'right' } },
+        ['id', 'name'],
+        ctx
+      );
+      expect(result.numRows()).toBe(0);
+    });
+
+    it('full join against a `data: []` model returns the left table unchanged', () => {
+      const ctx = {
+        sources: [],
+        models: [{ id: 'mdl_r', name: 'R', data: [] as any[] }],
+      };
+      const result = applyTransform(
+        left(),
+        { join: { right: 'mdl_r', on: [['id', 'id']], how: 'full' } },
+        ['id', 'name'],
+        ctx
+      );
+      expect(result.objects()).toEqual([
+        { id: 1, name: 'Alice' },
+        { id: 2, name: 'Bob' },
+      ]);
+    });
+
+    it('cross join against a `data: []` model returns empty result', () => {
+      // Cartesian product with zero rows on the right is zero rows total.
+      // Note: Arquero's cross() does NOT throw here — it silently returns
+      // the left table unchanged, which is wrong (n × 0 ≠ n). The guard
+      // gives us the correct cardinality.
+      const ctx = {
+        sources: [],
+        models: [{ id: 'mdl_r', name: 'R', data: [] as any[] }],
+      };
+      const result = applyTransform(
+        left(),
+        { join: { right: 'mdl_r', on: [['id', 'id']], how: 'cross' } },
+        ['id', 'name'],
+        ctx
+      );
+      expect(result.numRows()).toBe(0);
+    });
+
     it('lookup against a `data: []` model adds undefined-valued columns', () => {
       const ctx = {
         sources: [],

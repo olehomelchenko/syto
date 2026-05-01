@@ -8,14 +8,14 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 
 ## Status at a glance
 
-| Area                                                                         | State          |
-| ---------------------------------------------------------------------------- | -------------- |
-| Tier 1 audit (transform core, expression language, schema, integration, e2e) | ✅ done        |
-| Tier 2 audit (handlers, services, components)                                | ⏸ not started  |
-| Batch 1 — deterministic edge cases                                           | 🟡 in progress |
-| Batch 2 — contract decisions + ReDoS                                         | ⏸ queued       |
-| Batch 3 — adversarial fixtures + multi-step composition                      | ⏸ queued       |
-| Property-based testing (fast-check)                                          | ⏸ not started  |
+| Area                                                                         | State         |
+| ---------------------------------------------------------------------------- | ------------- |
+| Tier 1 audit (transform core, expression language, schema, integration, e2e) | ✅ done       |
+| Tier 2 audit (handlers, services, components)                                | ⏸ not started |
+| Batch 1 — deterministic edge cases                                           | ✅ done       |
+| Batch 2 — contract decisions + ReDoS                                         | ⏸ queued      |
+| Batch 3 — adversarial fixtures + multi-step composition                      | ⏸ queued      |
+| Property-based testing (fast-check)                                          | ⏸ not started |
 
 ---
 
@@ -34,10 +34,14 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 
 **Delta:** +45 tests (2223 → 2268). Suite still ≈13 s. All green. Typecheck clean.
 
-### Still to do in Batch 1
+### Done (2026-04-24, follow-up)
 
-- [x] **Bug fix: empty-`data` model throws on join.** _Fixed 2026-04-24._ `src/core/transforms/handlers/join.ts` now detects a schema-less right table (`numCols() === 0`) in `handleSemijoin`/`handleAntijoin`/`handleLookup` and short-circuits to the correct empty-result semantics. Tests in `transforms-join.test.ts` now assert the fixed behaviour for all three.
-- [ ] **Follow-up: `handleJoin` (inner/left/right/full/cross) likely has the same bug.** Tracked in [BACKLOG.md — Empty-Model Crash in `handleJoin`](BACKLOG.md). Not in the Tier 1 audit so not currently covered. Queue before Batch 2.
+- **`handleJoin` empty-right guard** (`src/core/transforms/handlers/join.ts`): the same `isSchemaless(right)` short-circuit used by semi/anti/lookup now covers `inner`/`left`/`right`/`full`/`cross`. Semantics: inner/right/cross → empty-but-schemad result with left columns; left/full → left table unchanged. Confirmed Arquero threw `Invalid column reference: ""` for inner/left/right/full and silently returned left unchanged for cross (wrong cardinality — n × 0 should be 0). Tests in `transforms-join.test.ts` now pin all five. **Delta:** +5 tests (2268 → 2277).
+
+### Resolved in Batch 1
+
+- [x] **Bug fix: empty-`data` model throws on join (semi/anti/lookup).** _Fixed 2026-04-24._ `src/core/transforms/handlers/join.ts` now detects a schema-less right table (`numCols() === 0`) in `handleSemijoin`/`handleAntijoin`/`handleLookup` and short-circuits to the correct empty-result semantics. Tests in `transforms-join.test.ts` now assert the fixed behaviour for all three.
+- [x] **Follow-up: `handleJoin` (inner/left/right/full/cross) same bug.** _Fixed 2026-04-24._ Extended the `isSchemaless(right)` guard to `handleJoin` with per-`how` semantics; BACKLOG entry removed.
 - [x] **Contract decision: aggregate of all-null → `null`.** _Decided 2026-04-24._ Per SOUL.md §7 ("Predictable, Not Clever"), Syto normalises Arquero's `undefined`-on-empty to `null` for sum/mean/min/max/median and any other rollup that produces `undefined`. `valid`/`distinct` keep their integer semantics (`valid` → 0, `distinct` → 1 because null counts as a distinct value). Implemented in `handleAggregate`; tests updated in `transforms-aggregate.test.ts`.
 
 ---
@@ -105,3 +109,4 @@ Conventions that emerged while writing Batch 1 have been promoted into [DEVELOPM
 - **2026-04-24** — Audited Tier 1, delivered Batch 1 edge-case coverage (+45 tests). Two findings pinned pending fix: empty-model join bug, all-null-sum surprise. This document created.
 - **2026-04-24** — Fixed empty-`data` model bug in semijoin/antijoin/lookup. `handleJoin` (inner/left/right/full/cross) still needs the same guard — queued as follow-up. All-null-sum contract still awaiting decision.
 - **2026-04-24** — Added SOUL.md §7 "Predictable, Not Clever" and resolved all-null aggregate contract to `null` for sum/mean/min/max/median (integer counts preserved for valid/distinct). Promoted TESTING_STRATEGY.md and TESTING_PROGRESS.md to first-class docs in CLAUDE.md, AGENTS.md, and quick-reference tables.
+- **2026-04-24** — Closed Batch 1. Extended the `isSchemaless(right)` guard to `handleJoin` (inner/left/right/full/cross) with per-`how` semantics; +5 tests (2272 → 2277). Ready to start Batch 2 (null-in-join-keys, null-in-group-by, ReDoS in ast-validator, uniform all-null aggregate contract).
