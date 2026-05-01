@@ -215,6 +215,9 @@ export const SchemaEngine = {
     if (nonNullValues.every((v) => typeof v === 'string')) {
       // ISO DateTime: 2024-01-01T12:00:00...
       // ISO DateTime: 2024-01-01T12:00:00... OR SQL: 2024-01-01 12:00:00...
+      // TODO: regex is unanchored at the end — "2024-01-01T00:00:00ABC" matches
+      // and infers as datetime. Pinned in schema-engine.test.ts → "Adversarial
+      // fixtures — timezones and date strings → trailing garbage".
       const isDateTime = nonNullValues.every((v) =>
         /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/.test(v as string)
       );

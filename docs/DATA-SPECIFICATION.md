@@ -199,9 +199,10 @@ Types are inferred using pattern matching with the following priority order:
 1. **Boolean**: All non-null values are JavaScript `boolean` type (`true` or `false`)
 2. **Integer**: All non-null values are JavaScript `number` type and are whole numbers
 3. **Float**: All non-null values are JavaScript `number` type (includes decimals)
-4. **Numeric Strings**: All non-null values are strings that parse cleanly as numbers (e.g., `"123"`, `"45.67"`)
+4. **Numeric Strings**: All non-null values are strings that parse cleanly as numbers (e.g., `"123"`, `"45.67"`, `"1e10"`)
    - Trimmed and validated with `Number()`, excluding `NaN` and `Infinity`
    - Returns `integer` if all parse as whole numbers, `float` otherwise
+   - Scientific notation is accepted (`"1e10"` → integer; `"1.5e-3"` → float). Round-trip is lossy: the textual form is replaced by the numeric value's default `toString()`. Overflow forms like `"1e500"` parse to `Infinity` and fall through to `string`.
 5. **JSON**: All non-null string values look like JSON (`{...}` or `[...]`) and at least one parses successfully
 6. **DateTime**: All non-null string values match regex:
    - ISO format: `YYYY-MM-DDTHH:MM:SS...`

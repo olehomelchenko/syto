@@ -14,7 +14,7 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 | Tier 2 audit (handlers, services, components)                                | ⏸ not started |
 | Batch 1 — deterministic edge cases                                           | ✅ done       |
 | Batch 2 — contract decisions + ReDoS                                         | ✅ done       |
-| Batch 3 — adversarial fixtures + multi-step composition                      | ⏸ queued      |
+| Batch 3 — adversarial fixtures + multi-step composition                      | 🟡 partial    |
 | Property-based testing (fast-check)                                          | ⏸ not started |
 
 ---
@@ -67,14 +67,26 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 
 ## Batch 3 — Adversarial fixtures + composition
 
-Bigger scope; queue these after Batches 1-2 are clean.
+### Done (2026-05-01)
 
-- [ ] **Adversarial-input fixture library.** `src/__fixtures__/` with: BOM, `\r\n`, Unicode combining characters in headers and cells, ragged rows, timezone-laden timestamps, scientific notation, extreme numerics (`MAX_SAFE_INTEGER`, subnormals, `-0`), mixed-type columns. Wire into `schema-engine.test.ts` and import tests.
-- [ ] **Multi-step composition scenarios.** Currently one e2e test. Add 3–5 realistic pipelines covering:
-  - Type drift across 4–5 stages (parse date → filter → derive → aggregate by month)
-  - Join in a pipeline (lookup → filter → aggregate)
-  - Window in a pipeline (window rank → filter rank ≤ 3 → aggregate)
-  - Null propagation through a chain
+- **Adversarial fixture library** (`src/__fixtures__/`): nine pure-data TS modules covering BOM, CRLF, ragged rows, NFC/NFD headers, ZWJ/ZWNJ, extreme numerics (MAX_SAFE_INTEGER, beyond-safe-int strings, `-0`, subnormals, `Infinity`/`NaN` strings), scientific notation (lowercase/uppercase E, integer/float/overflow forms), timezone-laden timestamps (zulu, numeric offset, naive, mixed), mixed-type columns (number+string, bool+string, mostly-numeric-with-outlier), Unicode combining marks, and RLO. Per-fixture imports (no barrel); see `src/__fixtures__/README.md`.
+- **Wired into `schema-engine.test.ts`** (`Adversarial fixtures —` describe blocks): 27 tests pinning `inferType` behaviour against the fixtures. Includes CONTRACT pins (e.g., scientific notation infers as integer/float per SOUL §7) and SURPRISE pins for documented quirks: beyond-safe-int strings still infer as integer with silent precision loss, overflow scientific notation falls through to string, trailing garbage after timestamp seconds still infers as datetime (the regex is unanchored at the end).
+- **Wired into `src/cli/file-loader.test.ts`** (new file): 10 tests against `parseCSV`. Pins BOM-stripping, CRLF/LF equivalence, ragged-row error throwing, and Unicode-header distinctness. **One concrete finding:** mixed CRLF/LF line endings throw a parse error because PapaParse infers the row terminator from the first newline and treats the rest as a single row. Documented as a SURPRISE pin; worth surfacing a clearer error message or auto-normalising on import (filed as a future ergonomic improvement).
+- **Multi-step composition scenarios** (`src/core/composition.test.ts`): 5 realistic pipelines.
+  - Type drift: `types: { date: 'date' } → filter year(date)==2024 → derive month → aggregate sum`
+  - Lookup-then-aggregate: `lookup region price → derive revenue → filter not null → group-by sum` (exercises null propagation from unmatched lookup)
+  - Window-rank-then-trim: `rank() partitioned by category → filter rnk ≤ 3 → mean per category` (top-3-per-group via composition)
+  - Null propagation: pins Batch 2 contracts end-to-end — null forms its own group, all-null aggregates normalise to null
+  - Type round-trip: `derive sum → select label,sum → derive doubled_sum` (regression-style: integer type survives projection)
+
+**Delta:** +42 tests (2296 → 2338). Suite still ≈15 s. Typecheck clean.
+
+### CONTRACT decision (2026-05-01)
+
+**Scientific-notation strings infer as integer or float.** `["1e10","2e5"]` → `integer` (Number.isInteger holds for 10_000_000_000); `["1.5e-3"]` → `float`; capital `E` parses identically to lowercase. Trade-off: lossy round-trip — `"1e10"` is stored as the number `10000000000` and serialises back as `"10000000000"`, losing the original textual form. Accepted because the same lossy round-trip already exists for plain decimal strings (e.g. `"9007199254740993"` rounds to `…992`). Treating scientific notation differently from decimal notation would be inconsistent. Pinned in `schema-engine.test.ts → Adversarial fixtures — scientific notation`.
+
+### Still queued from Batch 3
+
 - [ ] **Tier 2 audit.** Handlers, services, components — the audit so far assumes these are similarly jagged to the Tier 1 finding pattern. Confirm with a representative sample before broad-brushing.
 
 ---
@@ -119,3 +131,4 @@ Conventions that emerged while writing Batch 1 have been promoted into [DEVELOPM
 - **2026-04-24** — Added SOUL.md §7 "Predictable, Not Clever" and resolved all-null aggregate contract to `null` for sum/mean/min/max/median (integer counts preserved for valid/distinct). Promoted TESTING_STRATEGY.md and TESTING_PROGRESS.md to first-class docs in CLAUDE.md, AGENTS.md, and quick-reference tables.
 - **2026-04-24** — Closed Batch 1. Extended the `isSchemaless(right)` guard to `handleJoin` (inner/left/right/full/cross) with per-`how` semantics; +5 tests (2272 → 2277). Ready to start Batch 2 (null-in-join-keys, null-in-group-by, ReDoS in ast-validator, uniform all-null aggregate contract).
 - **2026-05-01** — Closed Batch 2. Pinned null-in-join-keys (SQL-correct, no engine change), pinned null-in-group-by, added `undefined → null` normalisation to join outputs, surfaced null-key warning in the join dialog, and shipped Phase 1 ReDoS protection via `safe-regex2` in `ast-validator`. +20 tests (2277 → 2296). Phase 2 RE2-WASM filed to BACKLOG. Ready for Batch 3 (adversarial fixtures, multi-step composition, Tier 2 audit).
+- **2026-05-01** — Batch 3 partial close. Built the adversarial fixture library (`src/__fixtures__/`, nine modules, per-fixture imports), wired into `schema-engine.test.ts` (27 inference tests) and a new `src/cli/file-loader.test.ts` (10 CSV-parsing tests). Added `src/core/composition.test.ts` with five multi-step scenarios. Pinned scientific-notation contract (integer/float, lossy-round-trip accepted). Surfaced one concrete finding: mixed CRLF/LF line endings throw a parse error because PapaParse picks the row terminator from the first newline. +42 tests (2296 → 2338). Tier 2 audit (handlers, services, components) still queued.

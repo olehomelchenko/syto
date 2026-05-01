@@ -692,12 +692,17 @@ const empty = (aq as any).from([]);
 const empty = (aq as any).from([{ id: 0, name: '' }]).filter(() => false);
 ```
 
-**`FINDING:` and `SURPRISE:` prefixes in test names.** Reserved for tests that pin _current_ behaviour which may be wrong:
+**`CONTRACT:`, `FINDING:`, and `SURPRISE:` prefixes in test names.** Markers that distinguish _why_ a behaviour is being asserted, so the test grep'able from the codebase and the next reader knows whether to trust the assertion as gospel:
 
+- `CONTRACT:` — deliberately decided behaviour, usually anchored to SOUL.md (e.g. null normalisation, all-null aggregate semantics). Don't change without a corresponding SOUL/spec update.
 - `FINDING:` — suspected bug pinned until fixed. Flip the assertion once resolved.
-- `SURPRISE:` — unintuitive-but-correct behaviour worth surfacing (e.g. native JS passthrough in the interpreter). Rename once accepted as the contract.
+- `SURPRISE:` — unintuitive-but-currently-acceptable behaviour worth surfacing (e.g. trailing garbage after datetime regex still matches). Rename to `CONTRACT:` once accepted, or fix and flip.
 
-Both markers make it easy to grep for known weirdness and distinguish it from ordinary regression tests.
+**Adversarial fixtures live in `src/__fixtures__/`.** Pure-data TS modules (BOM/CRLF CSV strings, extreme numerics, scientific notation, timezone variants, Unicode normalisation forms, mixed-type columns). Conventions: per-fixture imports (no barrel `index.ts`), homogeneous arrays unless the fixture is specifically about heterogeneity. Read `src/__fixtures__/README.md` before adding new ones — and re-use existing fixtures across `inferType`, parser, and composition tests rather than duplicating inline literals.
+
+**Multi-step composition scenarios live in `src/core/composition.test.ts`.** That file is the home for "real pipeline" tests — type drift, lookup-then-aggregate, window-rank-then-trim, null propagation through chains. Single-transform unit tests can't catch composition drift; add to `composition.test.ts` rather than wedging multi-step assertions into per-transform files.
+
+**Editor pipeline NFC-normalises file contents on save.** Source files containing visually identical but byte-distinct Unicode strings (e.g. NFC `café` vs NFD `café`) will have both literals collapsed to NFC by Prettier/the editor. `\uXXXX` escape sequences inside string literals get unescaped at write-time too. When a test genuinely needs distinct codepoint sequences, build them at runtime with `String.fromCharCode(0x...)` — see `src/__fixtures__/combining-marks.ts` for the canonical pattern.
 
 ---
 

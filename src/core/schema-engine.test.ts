@@ -1,5 +1,39 @@
 import { describe, it, expect } from 'vitest';
 import { SchemaEngine } from './schema-engine';
+import {
+  safeIntegers,
+  safeIntegerStrings,
+  beyondSafeIntegerStrings,
+  minusZeroNumbers,
+  minusZeroStrings,
+  subnormals,
+  specialValueStrings,
+} from '../__fixtures__/extreme-numerics';
+import {
+  integerScientific,
+  floatScientific,
+  mixedScientific,
+  upperEScientific,
+  overflowScientific,
+} from '../__fixtures__/scientific-notation';
+import {
+  utcZulu,
+  offsetTimezones,
+  naiveDatetimeSql,
+  naiveDatetimeIso,
+  mixedTimezones,
+  withMilliseconds,
+  trailingGarbageDatetime,
+} from '../__fixtures__/timezones';
+import {
+  numberAndString,
+  boolAndString,
+  mixedNumericText,
+  mostlyNumericOneOutlier,
+  datesAndText,
+  fuzzyBools,
+} from '../__fixtures__/mixed-types';
+import { cafeNfc, cafeNfd, cafeFormsAreDistinct } from '../__fixtures__/combining-marks';
 
 describe('Schema Engine', () => {
   describe('inferType()', () => {
@@ -267,6 +301,161 @@ describe('Schema Engine', () => {
       expect(diff.missingColumns).toEqual(['age']);
       expect(diff.newColumns).toEqual(['email']);
       expect(diff.typeChanges).toEqual([{ column: 'id', oldType: 'integer', newType: 'string' }]);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Adversarial fixtures — column-level type inference
+  //
+  // These pin behaviour against the inputs in src/__fixtures__. Failures here
+  // either signal a regression or — if accompanied by a SURPRISE/FINDING tag —
+  // a deliberately documented quirk that we've decided is acceptable.
+  // -------------------------------------------------------------------------
+
+  describe('Adversarial fixtures — extreme numerics', () => {
+    it('CONTRACT: MAX_SAFE_INTEGER as number infers as integer', () => {
+      expect(SchemaEngine.inferType(safeIntegers)).toBe('integer');
+    });
+
+    it('CONTRACT: MAX_SAFE_INTEGER as string infers as integer', () => {
+      expect(SchemaEngine.inferType(safeIntegerStrings)).toBe('integer');
+    });
+
+    it('SURPRISE: beyond-safe-int strings still infer as integer (silent precision loss)', () => {
+      // "9007199254740993" parses to 9007199254740992 — off by one. Number.isInteger
+      // is still true on the lossy parse, so inferType returns 'integer'. The
+      // engine has no way to detect this without comparing the string to the
+      // numeric round-trip, which it does not do today.
+      expect(SchemaEngine.inferType(beyondSafeIntegerStrings)).toBe('integer');
+    });
+
+    it('CONTRACT: -0 as number infers as integer', () => {
+      // Number.isInteger(-0) is true, so this is consistent with general integer detection.
+      expect(SchemaEngine.inferType(minusZeroNumbers)).toBe('integer');
+    });
+
+    it('CONTRACT: "-0" as string infers as integer', () => {
+      expect(SchemaEngine.inferType(minusZeroStrings)).toBe('integer');
+    });
+
+    it('CONTRACT: subnormal floats infer as float', () => {
+      expect(SchemaEngine.inferType(subnormals)).toBe('float');
+    });
+
+    it('CONTRACT: "Infinity"/"NaN" strings fall through to string', () => {
+      // Number("Infinity") is finite-checked away in inferType, so these are
+      // not coerced — they remain string values. SOUL.md §7: predictable, not clever.
+      expect(SchemaEngine.inferType(specialValueStrings)).toBe('string');
+    });
+  });
+
+  describe('Adversarial fixtures — scientific notation', () => {
+    it('CONTRACT: integer-valued scientific notation infers as integer', () => {
+      // 1e10 = 10_000_000_000, Number.isInteger is true.
+      expect(SchemaEngine.inferType(integerScientific)).toBe('integer');
+    });
+
+    it('CONTRACT: fractional scientific notation infers as float', () => {
+      expect(SchemaEngine.inferType(floatScientific)).toBe('float');
+    });
+
+    it('CONTRACT: mixed integer/fractional scientific notation promotes to float', () => {
+      expect(SchemaEngine.inferType(mixedScientific)).toBe('float');
+    });
+
+    it('CONTRACT: capital "E" scientific notation parses identically to lowercase', () => {
+      expect(SchemaEngine.inferType(upperEScientific)).toBe('integer');
+    });
+
+    it('SURPRISE: overflow scientific notation falls through to string', () => {
+      // Number("1e500") === Infinity, fails the isFinite check. The user typed
+      // a numeric form, so calling this 'string' is a usability quirk — but
+      // there's no meaningful float representation to give them.
+      expect(SchemaEngine.inferType(overflowScientific)).toBe('string');
+    });
+  });
+
+  describe('Adversarial fixtures — timezones and date strings', () => {
+    it('CONTRACT: UTC zulu timestamps infer as datetime', () => {
+      expect(SchemaEngine.inferType(utcZulu)).toBe('datetime');
+    });
+
+    it('CONTRACT: numeric-offset timestamps infer as datetime', () => {
+      expect(SchemaEngine.inferType(offsetTimezones)).toBe('datetime');
+    });
+
+    it('CONTRACT: SQL-style naive datetimes infer as datetime', () => {
+      expect(SchemaEngine.inferType(naiveDatetimeSql)).toBe('datetime');
+    });
+
+    it('CONTRACT: ISO-T naive datetimes infer as datetime', () => {
+      expect(SchemaEngine.inferType(naiveDatetimeIso)).toBe('datetime');
+    });
+
+    it('CONTRACT: mixed UTC+offset timestamps still infer as datetime', () => {
+      expect(SchemaEngine.inferType(mixedTimezones)).toBe('datetime');
+    });
+
+    it('CONTRACT: sub-second precision is recognised as datetime', () => {
+      expect(SchemaEngine.inferType(withMilliseconds)).toBe('datetime');
+    });
+
+    it('SURPRISE: trailing garbage after seconds still infers as datetime', () => {
+      // The current regex /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/ is unanchored
+      // at the end, so anything after the second digits is accepted. This means
+      // "2024-01-01T00:00:00ABC" is classified as datetime even though it isn't
+      // a valid timestamp. Pinning so a future tightening of the regex is a
+      // deliberate decision rather than an accident.
+      expect(SchemaEngine.inferType(trailingGarbageDatetime)).toBe('datetime');
+    });
+  });
+
+  describe('Adversarial fixtures — mixed-type columns', () => {
+    it('CONTRACT: number+string column falls back to string', () => {
+      expect(SchemaEngine.inferType(numberAndString)).toBe('string');
+    });
+
+    it('CONTRACT: bool+string column falls back to string', () => {
+      expect(SchemaEngine.inferType(boolAndString)).toBe('string');
+    });
+
+    it('CONTRACT: numeric strings + free text fall back to string', () => {
+      expect(SchemaEngine.inferType(mixedNumericText)).toBe('string');
+    });
+
+    it('CONTRACT: a single non-numeric outlier in a numeric column poisons type to string', () => {
+      // Important: there is no "mostly numeric" tolerance. One bad value flips
+      // the entire column to string. Consequence for users — a single typo in a
+      // 1M-row import means the column won't be summable until they clean it.
+      expect(SchemaEngine.inferType(mostlyNumericOneOutlier)).toBe('string');
+    });
+
+    it('CONTRACT: dates + free text fall back to string', () => {
+      expect(SchemaEngine.inferType(datesAndText)).toBe('string');
+    });
+
+    it('CONTRACT: bool+null+empty+yes/no fuzzy column falls back to string', () => {
+      expect(SchemaEngine.inferType(fuzzyBools)).toBe('string');
+    });
+  });
+
+  describe('Adversarial fixtures — Unicode normalisation', () => {
+    it('FINDING: NFC and NFD forms of "café" are byte-distinct', () => {
+      // Sanity check the fixture — important because it justifies the next test.
+      expect(cafeFormsAreDistinct).toBe(true);
+      expect(cafeNfc).not.toBe(cafeNfd);
+    });
+
+    it('FINDING: object keys do not normalise — two "café" columns coexist', () => {
+      // This is JS-language behaviour, not Syto-specific, but it has direct
+      // consequences for column-name uniqueness checks in schemas. If a CSV has
+      // a column "café" (NFC) and another "café" (NFD), they are distinct keys.
+      const obj: Record<string, number> = {};
+      obj[cafeNfc] = 1;
+      obj[cafeNfd] = 2;
+      expect(Object.keys(obj)).toHaveLength(2);
+      expect(obj[cafeNfc]).toBe(1);
+      expect(obj[cafeNfd]).toBe(2);
     });
   });
 });
