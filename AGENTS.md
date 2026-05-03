@@ -89,7 +89,7 @@ npm run format   # Prettier
 
 ### AI Developer Protocol
 
-- **No Staging or Committing**: Never run `git add`, `git commit`, or `git push`. Staging and committing is strictly reserved for the USER.
+- **No Staging or Committing on your own initiative**: Don't run `git add`, `git commit`, or `git push` unprompted. If the user explicitly invites you to commit (e.g. "go ahead and commit this"), you may stage and commit on their behalf — that's still the user driving, just delegated. Default remains: hands off git, the user runs it.
 - **Verification**: After changes, run `npm run typecheck` or `npm test` to catch errors.
 - **Spec Before Code**: For non-trivial features, draft a brief spec (goals, constraints, edge cases, testing strategy) collaboratively with the user before writing implementation code.
 - **Ask for Context**: Before working on unfamiliar code areas or library-specific logic, ask the user which files, docs, or examples to read — don't assume from file names alone.
