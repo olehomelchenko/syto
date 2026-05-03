@@ -15,7 +15,7 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 | Batch 1 — deterministic edge cases                                           | ✅ done       |
 | Batch 2 — contract decisions + ReDoS                                         | ✅ done       |
 | Batch 3 — adversarial fixtures + multi-step composition                      | 🟡 partial    |
-| Property-based testing (fast-check)                                          | ⏸ not started |
+| Property-based testing (fast-check)                                          | 🟡 partial    |
 
 ---
 
@@ -91,19 +91,44 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 
 ---
 
-## Property-based testing (future)
+## Property-based testing
 
-Not started. The strategy doc argues strongly for this on the transformation core. Start small once Batches 1–3 are steady:
+### Done (2026-05-03)
 
-- [ ] Add `fast-check` dependency.
-- [ ] Write a small dataframe generator (schemas + row shapes + null sprinkling).
-- [ ] One property per transform family as a pilot:
-  - `filter`: row-count invariant (`result.rows ≤ input.rows`); identity on always-true.
-  - `select`: column-count invariant; idempotence.
-  - `sort`: length preserved; permutation of input.
-  - `aggregate`: group count ≤ input row count; sum-over-all rows preserved across group splits.
+- [x] **Add `fast-check@4.7.0`** dependency.
+- [x] **Dataframe generator** (`src/core/property-generators.ts`): shared arbitraries for numeric tables with null sprinkling, filter expression + table combos, select column subsets, sort specs, and aggregate cases. Uses `fc.chain` for row-count-dependent generation and `fc.oneof` to sprinkle nulls.
+- [x] **Filter** (`src/core/property-filter.test.ts`, 4 properties):
+  - Row-count invariant: `result.numRows() ≤ input.numRows()` for random `v >/</≥/≤ threshold` expressions.
+  - Identity: filter `true` preserves all rows.
+  - False filter: filter `false` returns 0 rows.
+  - Idempotence: filter twice = filter once (with empty-result schema-loss carve-out).
+- [x] **Select** (`src/core/property-select.test.ts`, 4 properties):
+  - Row count preserved.
+  - Column set matches selection.
+  - Idempotence (apply same select twice).
+  - Select-all returns identical columns.
+- [x] **Sort** (`src/core/property-sort.test.ts`, 4 properties):
+  - Row count preserved.
+  - Column names preserved.
+  - Idempotence (objects() equality).
+  - Output is a permutation of input rows (multiset equality check).
+- [x] **Aggregate** (`src/core/property-aggregate.test.ts`, 5 properties):
+  - Group count ≤ input row count.
+  - Sum-over-groups equals sum-over-input.
+  - Count-over-groups equals count-over-input (non-null).
+  - Aggregate without groupby returns exactly one row.
+  - Output columns include groupby and rollup names.
 
-If the pilot catches real bugs, expand. If not, revisit whether the generator is too narrow before writing more properties.
+**Delta:** +17 tests (2338 → 2355). Suite still ≈15 s. All green. Typecheck clean.
+
+### One finding
+
+- **Filter idempotence breaks on empty result.** When a filter returns 0 rows, re-applying the same filter to the empty result loses column names (`aq.from([])` is schema-less). The handler's schema-preservation path only triggers when `input.rows > 0`. This is an Arquero edge case, not a correctness bug (the data is identical — zero rows). Documented as a carve-out in the idempotence property.
+
+### Still queued
+
+- [ ] **Join properties.** Requires two-table generation and `TransformContext` setup — more complex generators. Deferred.
+- [ ] **Property-based testing on additional transforms** (derive, fold, pivot, window, etc.). Pilot only covers the four primary transform families.
 
 ---
 
@@ -132,3 +157,4 @@ Conventions that emerged while writing Batch 1 have been promoted into [DEVELOPM
 - **2026-04-24** — Closed Batch 1. Extended the `isSchemaless(right)` guard to `handleJoin` (inner/left/right/full/cross) with per-`how` semantics; +5 tests (2272 → 2277). Ready to start Batch 2 (null-in-join-keys, null-in-group-by, ReDoS in ast-validator, uniform all-null aggregate contract).
 - **2026-05-01** — Closed Batch 2. Pinned null-in-join-keys (SQL-correct, no engine change), pinned null-in-group-by, added `undefined → null` normalisation to join outputs, surfaced null-key warning in the join dialog, and shipped Phase 1 ReDoS protection via `safe-regex2` in `ast-validator`. +20 tests (2277 → 2296). Phase 2 RE2-WASM filed to BACKLOG. Ready for Batch 3 (adversarial fixtures, multi-step composition, Tier 2 audit).
 - **2026-05-01** — Batch 3 partial close. Built the adversarial fixture library (`src/__fixtures__/`, nine modules, per-fixture imports), wired into `schema-engine.test.ts` (27 inference tests) and a new `src/cli/file-loader.test.ts` (10 CSV-parsing tests). Added `src/core/composition.test.ts` with five multi-step scenarios. Pinned scientific-notation contract (integer/float, lossy-round-trip accepted). Surfaced one concrete finding: mixed CRLF/LF line endings throw a parse error because PapaParse picks the row terminator from the first newline. +42 tests (2296 → 2338). Tier 2 audit (handlers, services, components) still queued.
+- **2026-05-03** — Kicked off property-based testing. Added `fast-check@4.7.0`, built a shared dataframe generator (`src/core/property-generators.ts`) with null sprinkling and chain-based arbitraries, and wrote 17 pilot property tests across filter (4), select (4), sort (4), and aggregate (5). All pass, typecheck clean, suite still ≈15 s. One finding: filter idempotence breaks on empty results due to Arquero's `from([])` schema-loss; documented as carve-out. Join properties deferred (two-table generator complexity). +17 tests (2338 → 2355).
