@@ -64,6 +64,13 @@ export function ParseDateDialog() {
 
   const commonFormatsRaw = getCommonFormats();
 
+  // TODO: format/i18n drift — `getCommonFormats()` returns 10 presets but only 4 are
+  // re-labelled below (us, eu, usTime, euTime). The remaining six fall through with
+  // their raw token strings. Conversely, the `parseDate.formats.iso` and
+  // `parseDate.formats.unix` keys are defined but unreachable: `getCommonFormats()`
+  // doesn't emit `'YYYY-MM-DD'` or `'timestamp'` as preset values, so the `iso` and
+  // `unix` entries below never resolve. Either align the preset list with the i18n
+  // keys, or drop the unused keys.
   const formatKeyMap: Record<string, string> = {
     'YYYY-MM-DD': 'iso',
     'MM/DD/YYYY': 'us',

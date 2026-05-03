@@ -36,7 +36,10 @@ export function DescribeDialog() {
 
   const { selectedColumns, isPreviewing, previewError } = state;
 
-  // Manual preview handle
+  // TODO: this dialog owns a manual `createDebouncedPreview` handle and runs it
+  // synchronously from a button click, instead of using `useTransformPreview` like
+  // every other dialog. Diverges from the established pattern; consider migrating
+  // so behaviour (debounce timing, error surface, cleanup) stays consistent.
   const previewRef = useRef<PreviewHandle | null>(null);
   if (previewRef.current === null) {
     previewRef.current = createDebouncedPreview({

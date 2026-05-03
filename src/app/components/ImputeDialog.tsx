@@ -51,6 +51,12 @@ export function ImputeDialog() {
     const value = state.value.value;
     const includeEmptyString = state.includeEmptyString.value;
     try {
+      // TODO: this preview runs against a hardcoded 8-row mock table, not the user's
+      // `AppStore.currentData`. As a result, the "Strategy preview" panel always shows
+      // the same example regardless of the dataset being imputed — surprising for users
+      // and a divergence from how every other dialog previews. Consider sampling from
+      // the real column (with synthesised nulls if the column has none) so the preview
+      // reflects what the user is about to apply.
       const mockData = [
         { val: 10 },
         { val: null },

@@ -80,13 +80,6 @@ Add designed empty states for scenarios currently showing blank space. See [UX-S
 
 No tests for `WorkflowImportService` (source creation, model building, pipeline computation, state updates) or `routeToWorkflowImport` in import-handlers. Core graph utilities are tested; the integration wiring is not.
 
-### DownloadDialog i18n
-
-**Status**: Planned
-**Effort**: Small
-
-Hardcoded English strings in `DownloadDialog.tsx`: "Select what you would like to download", "Workflow (JSON)", "Export transformation steps as a JSON workflow", and other button labels. Extract to `dialogs` i18n namespace with Ukrainian translations.
-
 ---
 
 ## Refactoring

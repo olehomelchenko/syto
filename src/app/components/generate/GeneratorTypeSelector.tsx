@@ -45,6 +45,11 @@ export function GeneratorTypeSelector({ type, onChange }: GeneratorTypeSelectorP
       <div class={styles.grid3} style={{ marginBottom: '1rem' }}>
         {GENERATOR_TYPES.map((gt) => (
           <label key={gt} class={styles.radioLabelCentered}>
+            {/* TODO: a11y — radios are visually replaced by icon labels but
+                hidden via `display: none`, which removes them from the
+                accessibility tree entirely. Use `.visually-hidden` (clip-path /
+                width:1px) instead so screen readers and keyboard users can still
+                reach the controls. */}
             <input
               type="radio"
               name="generatorType"

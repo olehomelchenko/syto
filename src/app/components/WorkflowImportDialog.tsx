@@ -22,6 +22,12 @@ export function WorkflowImportDialog() {
     return b && b.data && !b.error;
   });
 
+  // TODO: parsing + presentation entanglement. PapaParse is invoked from inside this
+  // component, so the file-input flow can't be tested without mocking PapaParse, and
+  // the parser/validator can't be reused outside the dialog. Extract a
+  // `parseWorkflowSourceFile()` helper (or move the logic into WorkflowImportService)
+  // so the component just dispatches and renders. Tracked under TESTING_PROGRESS.md
+  // Session 3 — architectural mocking lift.
   const handleFilePick = (sourceName: string, file: File) => {
     const sourceDef = workflow.sources[sourceName];
     const delimiter = sourceDef.parsing?.delimiter || ',';
