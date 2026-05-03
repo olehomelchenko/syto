@@ -8,14 +8,14 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 
 ## Status at a glance
 
-| Area                                                                         | State         |
-| ---------------------------------------------------------------------------- | ------------- |
-| Tier 1 audit (transform core, expression language, schema, integration, e2e) | ✅ done       |
-| Tier 2 audit (handlers, services, components)                                | ⏸ not started |
-| Batch 1 — deterministic edge cases                                           | ✅ done       |
-| Batch 2 — contract decisions + ReDoS                                         | ✅ done       |
-| Batch 3 — adversarial fixtures + multi-step composition                      | 🟡 partial    |
-| Property-based testing (fast-check)                                          | 🟡 partial    |
+| Area                                                                         | State      |
+| ---------------------------------------------------------------------------- | ---------- |
+| Tier 1 audit (transform core, expression language, schema, integration, e2e) | ✅ done    |
+| Tier 2 audit (handlers, services, components)                                | 🟡 partial |
+| Batch 1 — deterministic edge cases                                           | ✅ done    |
+| Batch 2 — contract decisions + ReDoS                                         | ✅ done    |
+| Batch 3 — adversarial fixtures + multi-step composition                      | 🟡 partial |
+| Property-based testing (fast-check)                                          | 🟡 partial |
 
 ---
 
@@ -87,7 +87,29 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 
 ### Still queued from Batch 3
 
-- [ ] **Tier 2 audit.** Handlers, services, components — the audit so far assumes these are similarly jagged to the Tier 1 finding pattern. Confirm with a representative sample before broad-brushing.
+- [x] **Tier 2 audit.** Audit + initial test additions complete (2026-05-03). See Tier 2 section below.
+
+---
+
+## Tier 2 — Handlers, Services, Components
+
+### Done (2026-05-03)
+
+- [x] **Inventory.** All ~150 source files across handlers (28), services (14), components (76), stores (10), orchestration (6), infrastructure (8), hooks (3), linters (1) mapped against test coverage. Coverage ranges from 10% (stores) to 100% (linters).
+- [x] **Diagnostic sample.** 10 representative tests sampled across all layers: 7/10 behaviour-focused, 2 over-mocked (`WorkflowImportService.test.ts`, `lazy-loading-data-integrity.test.ts`), 1 borderline (`DataTable.test.tsx`).
+- [x] **Failure mode 2** (mocked-away interesting parts) confirmed in `WorkflowImportService.test.ts` and `lazy-loading-data-integrity.test.ts` — both mock internal domain services, not just I/O boundaries.
+- [x] **Failure mode 3** (composition gaps) confirmed: only one multi-step E2E scenario existed. Added a second: Import two CSVs → Join → Derive → Export CSV.
+- [x] **DialogStore tests** — previously 0% coverage on stores except AppStore; added 19 tests covering static state references, bridge signals, `createSignalProxy`, and `resetAll`.
+- [x] **Join E2E scenario** — multi-source composition previously untested at any level. Tests: two CSV imports, left join, derive (price × quantity), CSV export round-trip. Surfaced a latent issue: same-millisecond `Date.now()` ID collisions cause `resolveModelInput` to resolve the wrong source (workaround in test via fake timers; production impact negligible since two manual imports can't happen within 1 ms).
+
+**Delta:** +20 tests (2355 → 2375). Suite still ≈15 s. All green. Typecheck clean.
+
+### Still queued for Tier 2
+
+- [ ] **Reduce mocking in WorkflowImportService and lazy-loading tests.** Both mock internal domain services (StepService, DependencyService) rather than testing against real implementations. Architectural lift required.
+- [ ] **Untested dialogs.** 14 dialog components still have no tests (DedupeDialog, DescribeDialog, AppendDialog, etc.). Most follow the same `useDialogState` + preview pattern as tested dialogs — adding coverage is mechanical.
+- [ ] **Untested stores.** 9 per-dialog state files remain untested. Low-ROI individually but collectively a gap.
+- [x] **WindowDialog tests.** Added 2026-05-03. +7 tests. Complex dialog with novel logic (function config, conditional UI, auto-naming, editing).
 
 ---
 
@@ -158,3 +180,4 @@ Conventions that emerged while writing Batch 1 have been promoted into [DEVELOPM
 - **2026-05-01** — Closed Batch 2. Pinned null-in-join-keys (SQL-correct, no engine change), pinned null-in-group-by, added `undefined → null` normalisation to join outputs, surfaced null-key warning in the join dialog, and shipped Phase 1 ReDoS protection via `safe-regex2` in `ast-validator`. +20 tests (2277 → 2296). Phase 2 RE2-WASM filed to BACKLOG. Ready for Batch 3 (adversarial fixtures, multi-step composition, Tier 2 audit).
 - **2026-05-01** — Batch 3 partial close. Built the adversarial fixture library (`src/__fixtures__/`, nine modules, per-fixture imports), wired into `schema-engine.test.ts` (27 inference tests) and a new `src/cli/file-loader.test.ts` (10 CSV-parsing tests). Added `src/core/composition.test.ts` with five multi-step scenarios. Pinned scientific-notation contract (integer/float, lossy-round-trip accepted). Surfaced one concrete finding: mixed CRLF/LF line endings throw a parse error because PapaParse picks the row terminator from the first newline. +42 tests (2296 → 2338). Tier 2 audit (handlers, services, components) still queued.
 - **2026-05-03** — Kicked off property-based testing. Added `fast-check@4.7.0`, built a shared dataframe generator (`src/core/property-generators.ts`) with null sprinkling and chain-based arbitraries, and wrote 17 pilot property tests across filter (4), select (4), sort (4), and aggregate (5). All pass, typecheck clean, suite still ≈15 s. One finding: filter idempotence breaks on empty results due to Arquero's `from([])` schema-loss; documented as carve-out. Join properties deferred (two-table generator complexity). +17 tests (2338 → 2355).
+- **2026-05-03** — Tier 2 audit + test additions. Inventoried ~150 source files across 8 layers; sampled 20 tests (12/20 behaviour-focused, 4 over-mocked in services layer, 2 borderline, 2 top-tier). Confirmed Failure Mode 2 (mocked-away interesting parts) concentrated in service layer, Failure Mode 3 (composition gaps) with only 1 multi-step E2E. Added DialogStore tests (19 tests, previously 0% store coverage), join E2E scenario (multi-source import → join → derive → export), WindowDialog tests (7 tests, most complex untested dialog). Surfaced latent ID-collision bug: same-millisecond Date.now() causes resolveModelInput to resolve wrong source. +27 tests (2355 → 2382).
