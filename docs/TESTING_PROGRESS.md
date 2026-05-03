@@ -13,10 +13,11 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 | Tier 1 audit (transform core, expression language, schema, integration, e2e) | ✅ done    |
 | Tier 2 audit (handlers, services, components)                                | 🟡 partial |
 | Tier 2 close-out Session 1 — dialog coverage                                 | ✅ done    |
+| Tier 2 close-out Session 2 — stores + property tests                         | ✅ done    |
 | Batch 1 — deterministic edge cases                                           | ✅ done    |
 | Batch 2 — contract decisions + ReDoS                                         | ✅ done    |
 | Batch 3 — adversarial fixtures + multi-step composition                      | 🟡 partial |
-| Property-based testing (fast-check)                                          | 🟡 partial |
+| Property-based testing (fast-check)                                          | ✅ done    |
 
 ---
 
@@ -109,7 +110,7 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 
 - [ ] **Reduce mocking in WorkflowImportService and lazy-loading tests.** Both mock internal domain services (StepService, DependencyService) rather than testing against real implementations. Architectural lift required. Queued for Session 3.
 - [x] **Untested dialogs.** Closed Session 1 (2026-05-03). 20 dialogs covered, +144 tests. See Session 1 close-out below.
-- [ ] **Untested stores.** ~14 per-dialog state files (under `src/app/stores/dialogs/`) remain untested. Queued for Session 2.
+- [x] **Untested stores.** Closed Session 2 (2026-05-03). +23 tests. See Session 2 close-out below.
 - [x] **WindowDialog tests.** Added 2026-05-03. +7 tests. Complex dialog with novel logic (function config, conditional UI, auto-naming, editing).
 
 ### Session 1 close-out — dialog coverage (2026-05-03)
@@ -138,6 +139,31 @@ These were noticed by the parallel agents while writing tests. Pinned here so th
 - **a11y: pattern-dialog `<select>` has no `aria-labelledby`.** Tests had to grab the select via `screen.getByText('Match type:').nextElementSibling` — slightly brittle. An `aria-labelledby` would be a cheap fix.
 - **`WorkflowImportDialog` mixes parsing + presentation.** PapaParse is invoked from inside the component; testing the file-input change handler would require mocking PapaParse. Parking the seam-extraction question under Session 3 (architectural lift).
 
+### Session 2 close-out — stores + property tests (2026-05-03)
+
+Goal: close the per-dialog store coverage gap and finish the property-based testing pilot (derive, fold, pivot, window, join).
+
+**Stores** (`src/app/stores/dialogs/dialogs.test.ts`, +23 tests). One combined test file rather than nine micro-files — the per-dialog stores are signal bags + reset functions with the same shape, and a single file keeps the contract testable in one place. Coverage:
+
+- `typeConversionState`, `importUrlState`, `previewState`, `generateState`, `importCsvState`, `importTextState`, `workflowImportState` — initial values, mutation sticks, reset returns to defaults.
+- `settingsState` — initial values; CONTRACT pin that reset preserves user prefs (`analyticsOptOut`, `language`, `engine`) and only restores `theme`/`rowLimit`.
+- `reset-registry` — `resetAllDialogStates()` fans out to every registered reset; `registerResetFunction` adds callbacks that fire on subsequent resets.
+
+The "~14 files" estimate from the original Session 2 plan is misleading: roughly half of the files under `src/app/stores/dialogs/` are placeholder barrels (`text/index.ts`, `aggregate/index.ts`, `transform/index.ts`) for dialogs that have already migrated to `useDialogState`, or pure type re-exports (`combine/index.ts`). Only nine files contain actual signal state, and they're all covered.
+
+**Property tests** (+22 tests across four files):
+
+- `property-derive.test.ts` (4): row-count preserved, schema delta (one new column), identity (`derive: { copy_a: 'a' }`), and per-row arithmetic match for `+`/`-`/`*`.
+- `property-window.test.ts` (5): row-count preserved with and without partition; column delta; partitioned `row_number()` produces a `1..k` permutation per partition; partitioned cumulative sum preserves per-partition totals from the input.
+- `property-fold-pivot.test.ts` (6): fold row-count multiplication (`numRows × |cols|`), schema (folded cols disappear, `as` cols appear), every input cell becomes a (key, value) pair; pivot single-row when `rows: []`; pivot schema includes row-identity + key values; **round-trip** `pivot(fold(t))` recovers `t` modulo column ordering.
+- `property-join.test.ts` (7): two-table `joinCaseArb` generator (right keys unique by construction, configurable overlap with left). Properties: left-join with unique right keys preserves left cardinality; inner ≤ left; semi+anti partition the left rows; antijoin result has no key in right; inner-join result keys are in both tables; left-join with empty right matches the schemaless-right contract from Batch 1; semijoin with null left key never matches even when right also has nulls (SQL contract reasserted as a property).
+
+**Delta:** +45 tests (2528 → 2573). Suite ≈16.75 s. All green. Typecheck clean.
+
+### Findings surfaced during Session 2
+
+None. The stores tests largely confirm that the reset functions match the declared initial values; the property tests run cleanly with the same `applyTransform` interface used by the example tests. The only minor surprise was that the stores directory is mostly placeholders (see above) — adjusting the plan from "~14 files" to "9 actual signal bags" — but that's a planning artifact, not a code finding.
+
 ---
 
 ## Future sessions — close-out plan
@@ -146,23 +172,7 @@ The remaining work to call the testing overhaul "done." Each session is sized fo
 
 ### Session 2 — Stores + remaining property tests
 
-**Goal:** close the per-dialog store coverage gap (Tier 2 last queued item) and extend property-based testing past the four-transform pilot.
-
-**Scope:**
-
-1. **Per-dialog stores** under `src/app/stores/dialogs/` (~14 files, none currently tested):
-   - `aggregate/index.ts`, `column/index.ts`, `column/type-conversion-state.ts`, `combine/index.ts`, `text/index.ts`, `transform/index.ts`, `reset-registry.ts`
-   - Import-related: `import/index.ts`, `import/generate-state.ts`, `import/import-csv-state.ts`, `import/import-text-state.ts`, `import/import-url-state.ts`, `import/preview-state.ts`, `import/settings-state.ts`, `import/workflow-import-state.ts`
-   - Most are signal bags + reset functions. Test the contract: initial values, mutation, reset behaviour. Pattern follows existing `src/app/stores/DialogStore.test.ts`.
-2. **Property-based tests for additional transforms.** Extend `src/core/property-*.test.ts` to cover `derive`, `fold`, `pivot`, `window`. Reuse generators from `src/core/property-generators.ts`. Properties to consider:
-   - `derive`: row-count preserved, declared schema matches actual cell types, identity (deriving `col` as `col` is no-op).
-   - `fold` / `pivot`: round-trip (`pivot(fold(x))` ≈ `x` modulo column ordering for well-formed inputs), row-count relationship.
-   - `window`: row-count preserved, partition-then-aggregate equivalence.
-3. **Join properties.** Build a two-table generator (the deferred piece — needs `TransformContext` setup with two source models). Properties: left-join cardinality preservation when right key is unique, no-op identity for empty right (already pinned in example tests but worth a property), null-key non-matching invariant.
-
-**Suggested order:** stores first (mechanical) → transform property tests → join properties. Stores can be parallelised with sub-agents the same way Session 1 was.
-
-**Estimated delta:** +30 to +60 tests.
+✅ Closed 2026-05-03. See "Session 2 close-out" above. +45 tests (2528 → 2573).
 
 ### Session 3 — Architectural mocking lift
 
@@ -237,10 +247,10 @@ The remaining work to call the testing overhaul "done." Each session is sized fo
 
 - **Filter idempotence breaks on empty result.** When a filter returns 0 rows, re-applying the same filter to the empty result loses column names (`aq.from([])` is schema-less). The handler's schema-preservation path only triggers when `input.rows > 0`. This is an Arquero edge case, not a correctness bug (the data is identical — zero rows). Documented as a carve-out in the idempotence property.
 
-### Still queued
+### Done (2026-05-03, follow-up)
 
-- [ ] **Join properties.** Requires two-table generation and `TransformContext` setup — more complex generators. Deferred.
-- [ ] **Property-based testing on additional transforms** (derive, fold, pivot, window, etc.). Pilot only covers the four primary transform families.
+- [x] **derive / fold / pivot / window properties** — closed in Session 2. See Session 2 close-out for the per-file rundown.
+- [x] **Join properties** — closed in Session 2. New `joinCaseArb` two-table generator in `property-generators.ts`; 7 properties covering cardinality, partitioning of left rows between semi/anti, key-membership in inner/anti, the schemaless-right contract from Batch 1, and the SQL null-non-matching contract.
 
 ---
 
@@ -273,3 +283,4 @@ Conventions that emerged while writing Batch 1 have been promoted into [DEVELOPM
 - **2026-05-03** — Tier 2 audit + test additions. Inventoried ~150 source files across 8 layers; sampled 20 tests (12/20 behaviour-focused, 4 over-mocked in services layer, 2 borderline, 2 top-tier). Confirmed Failure Mode 2 (mocked-away interesting parts) concentrated in service layer, Failure Mode 3 (composition gaps) with only 1 multi-step E2E. Added DialogStore tests (19 tests, previously 0% store coverage), join E2E scenario (multi-source import → join → derive → export), WindowDialog tests (7 tests, most complex untested dialog). Surfaced latent ID-collision bug: same-millisecond Date.now() causes resolveModelInput to resolve wrong source. +27 tests (2355 → 2382).
 - **2026-05-03** — Tier 2 close-out Session 1: dialog coverage. Wrote the `DedupeDialog` test as a template (8 tests), then fanned out four parallel sub-agents with the template as reference. Closed coverage on 19 previously-untested dialogs across four batches: A (Append/Describe/Impute/Spread/Unroll, +34), B (six pattern + regexp dialogs, +42), C (TypeConversion/Generate/ImportText/ImportUrl/Download, +37), D (three meta dialogs: WorkflowImport/DependencyImpact/StepRemoval, +23). Total +144 tests (2382 → 2526). All green, typecheck clean, suite ≈16.6 s. Surfaced one real bug (DependencyImpactDialog plural keys broken for English), one stale BACKLOG entry (DownloadDialog already i18n'd), two a11y improvements, and several i18n drift findings. Sessions 2 (stores + remaining property tests) and 3 (architectural mocking lift) still queued.
 - **2026-05-03** — Fixed `DependencyImpactDialog` plural-keys bug surfaced in Session 1. Replaced the manual Slavic-style ternary with `t('dependencyDialog.message', { count })` so i18next picks the locale-correct plural form. Extended `src/test-setup.ts` mock to do English plural resolution (try `_one`/`_other` suffixes when `count` is supplied) so future plural-form mismatches surface in tests. Added two regression tests pinning singular and plural rendering. +2 tests (2526 → 2528). Documented Sessions 2, 3, and 4 plans in this file (Future sessions section) so they can be picked up cold.
+- **2026-05-03** — Closed Session 2: per-dialog stores + remaining property tests. Added `dialogs.test.ts` covering all nine signal-bag stores (typeConversion, importUrl, settings, preview, generate, importCsv, importText, workflowImport, reset-registry) — 23 tests. Pinned the user-prefs preservation contract on `settingsState.reset`. Property tests for the remaining transform families: derive (4), window (5), fold/pivot (6), join (7) — using a new `joinCaseArb` two-table generator with configurable key overlap and unique-by-construction right keys. Round-trip property `pivot(fold(t)) ≈ t` holds. SQL null-non-matching is now a property, not just an example. +45 tests (2528 → 2573). Suite ≈16.75 s. Sessions 3 (architectural mocking lift) and 4 (wrap-up) still queued.
