@@ -44,14 +44,25 @@ function interpolate(str: string, values?: Record<string, any>): string {
 }
 
 // Mock preact-i18next globally for all tests
-// Uses actual English translations with interpolation support
+// Uses actual English translations with interpolation support and English plural resolution.
+// When `options.count` is supplied, looks up `key_one` (count === 1) or `key_other` (else)
+// before falling back to the bare key. Mirrors i18next's English CLDR plural rules so tests
+// catch grammar-form mismatches that the production runtime would surface.
 vi.mock('preact-i18next', () => ({
   useTranslation: (namespaceArg: string | string[] = 'common') => ({
     t: (key: string, options?: Record<string, any>) => {
       // Determine namespace: explicit ns option > first namespace from array > string arg
       const defaultNs = Array.isArray(namespaceArg) ? namespaceArg[0] : namespaceArg;
       const ns = options?.ns ?? defaultNs;
-      const translation = getNestedValue(translations[ns], key);
+
+      let translation: any;
+      if (typeof options?.count === 'number') {
+        const suffix = options.count === 1 ? '_one' : '_other';
+        translation = getNestedValue(translations[ns], key + suffix);
+      }
+      if (translation === undefined) {
+        translation = getNestedValue(translations[ns], key);
+      }
       if (translation === undefined) {
         console.warn(`Missing translation: ${ns}.${key}`);
         return key; // Fallback to key if translation not found

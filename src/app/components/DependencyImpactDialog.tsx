@@ -45,14 +45,7 @@ export function DependencyImpactDialog() {
           <p
             style={{ marginBottom: '16px' }}
             dangerouslySetInnerHTML={{
-              __html: t(
-                count === 1
-                  ? 'dependencyDialog.message_one'
-                  : count >= 2 && count <= 4
-                    ? 'dependencyDialog.message_few'
-                    : 'dependencyDialog.message_many',
-                { count }
-              ),
+              __html: t('dependencyDialog.message', { count }),
             }}
           ></p>
 

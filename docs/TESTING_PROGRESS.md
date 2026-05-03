@@ -12,6 +12,7 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 | ---------------------------------------------------------------------------- | ---------- |
 | Tier 1 audit (transform core, expression language, schema, integration, e2e) | ✅ done    |
 | Tier 2 audit (handlers, services, components)                                | 🟡 partial |
+| Tier 2 close-out Session 1 — dialog coverage                                 | ✅ done    |
 | Batch 1 — deterministic edge cases                                           | ✅ done    |
 | Batch 2 — contract decisions + ReDoS                                         | ✅ done    |
 | Batch 3 — adversarial fixtures + multi-step composition                      | 🟡 partial |
@@ -106,10 +107,99 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 
 ### Still queued for Tier 2
 
-- [ ] **Reduce mocking in WorkflowImportService and lazy-loading tests.** Both mock internal domain services (StepService, DependencyService) rather than testing against real implementations. Architectural lift required.
-- [ ] **Untested dialogs.** 14 dialog components still have no tests (DedupeDialog, DescribeDialog, AppendDialog, etc.). Most follow the same `useDialogState` + preview pattern as tested dialogs — adding coverage is mechanical.
-- [ ] **Untested stores.** 9 per-dialog state files remain untested. Low-ROI individually but collectively a gap.
+- [ ] **Reduce mocking in WorkflowImportService and lazy-loading tests.** Both mock internal domain services (StepService, DependencyService) rather than testing against real implementations. Architectural lift required. Queued for Session 3.
+- [x] **Untested dialogs.** Closed Session 1 (2026-05-03). 20 dialogs covered, +144 tests. See Session 1 close-out below.
+- [ ] **Untested stores.** ~14 per-dialog state files (under `src/app/stores/dialogs/`) remain untested. Queued for Session 2.
 - [x] **WindowDialog tests.** Added 2026-05-03. +7 tests. Complex dialog with novel logic (function config, conditional UI, auto-naming, editing).
+
+### Session 1 close-out — dialog coverage (2026-05-03)
+
+Goal: knock out untested dialog components in parallel via sub-agents, with one human-written template setting the pattern.
+
+- [x] **Template** — `DedupeDialog.test.tsx` (8 tests). Established the contract for all subsequent dialog tests: `renderWithI18n`, `beforeEach` resets `AppStore` signals, real i18n strings via the global mock in `src/test-setup.ts`, `await waitFor(...)` for debounced `useTransformPreview` assertions.
+- [x] **Batch A** (5 dialogs, +34 tests): AppendDialog (8), DescribeDialog (6), ImputeDialog (7), SpreadDialog (7), UnrollDialog (6).
+- [x] **Batch B** (6 dialogs, +42 tests): RemovePatternDialog (8), SelectPatternDialog (8), RenamePatternDialog (7), RegexpMatchDialog (6), RegexpExtractDialog (6), ParseDateDialog (7).
+- [x] **Batch C** (5 dialogs, +37 tests): TypeConversionDialog (8), GenerateDialog (10), ImportTextDialog (5), ImportUrlDialog (8), DownloadDialog (6).
+- [x] **Batch D** (3 meta dialogs, +23 tests): WorkflowImportDialog (9), DependencyImpactDialog (7), StepRemovalDialog (7). No skips — all three had viable seams without domain-mock pulls.
+
+**Delta:** +144 tests (2382 → 2526). Suite ≈16.6 s. All green. Typecheck clean.
+
+### Findings surfaced during Session 1
+
+These were noticed by the parallel agents while writing tests. Pinned here so they don't get lost; none required engine changes to land Session 1 green.
+
+- **BUG: `DependencyImpactDialog` plural keys were broken for English.** _Fixed 2026-05-03._ The component branched on `dependencyDialog.message_one` / `_few` / `_many` (manual Slavic-style ternary), but English defines only `_one` / `_other`, so any `count >= 2` rendered the literal key string. Replaced the ternary with a single `t('dependencyDialog.message', { count })` call so i18next picks the locale-correct plural form. Also extended the test-setup mock (`src/test-setup.ts`) to do English plural resolution (`_one` / `_other` lookup when `count` is supplied) so this class of bug surfaces in tests. Added two regression tests pinning singular and plural rendering.
+- **Dead i18n key `errors.validation.invalid.regexPattern`.** `validation-engine.ts` uses `errors.validation.invalid.pattern` instead. The unused key is in `errors.json` but never fires.
+- **`ParseDateDialog` format/i18n drift.** `getCommonFormats()` returns 10 presets; `formatKeyMap` only re-labels 4 of them, so 6 presets render with raw token labels. Conversely, i18n keys `parseDate.formats.iso` and `parseDate.formats.unix` are defined but never reached because `getCommonFormats()` doesn't emit `YYYY-MM-DD` or `timestamp` as preset values.
+- **`ImputeDialog` preview ignores `currentData`.** Its preview runs against a hard-coded 8-row sample table with nulls. The "Strategy preview" panel is therefore always present regardless of test data — and regardless of _real_ data. Worth knowing if anyone touches that component.
+- **`DescribeDialog` doesn't use `useTransformPreview`.** It owns a manual `createDebouncedPreview` handle that runs synchronously on a button click. Diverges from the rest of the dialog patterns.
+- **`DownloadDialog` BACKLOG entry is stale.** BACKLOG.md still lists "DownloadDialog i18n" as planned, but the component is already internationalised via the `dialogs.download.*` namespace. Entry can be removed from BACKLOG.
+- **a11y: `GenerateDialog` radios are `display: none`.** Visually replaced by icon labels but reachable only via name attribute, not via RTL roles or assistive tech. Worth an a11y audit.
+- **a11y: pattern-dialog `<select>` has no `aria-labelledby`.** Tests had to grab the select via `screen.getByText('Match type:').nextElementSibling` — slightly brittle. An `aria-labelledby` would be a cheap fix.
+- **`WorkflowImportDialog` mixes parsing + presentation.** PapaParse is invoked from inside the component; testing the file-input change handler would require mocking PapaParse. Parking the seam-extraction question under Session 3 (architectural lift).
+
+---
+
+## Future sessions — close-out plan
+
+The remaining work to call the testing overhaul "done." Each session is sized for one focused work block. Pick them up cold with the brief below.
+
+### Session 2 — Stores + remaining property tests
+
+**Goal:** close the per-dialog store coverage gap (Tier 2 last queued item) and extend property-based testing past the four-transform pilot.
+
+**Scope:**
+
+1. **Per-dialog stores** under `src/app/stores/dialogs/` (~14 files, none currently tested):
+   - `aggregate/index.ts`, `column/index.ts`, `column/type-conversion-state.ts`, `combine/index.ts`, `text/index.ts`, `transform/index.ts`, `reset-registry.ts`
+   - Import-related: `import/index.ts`, `import/generate-state.ts`, `import/import-csv-state.ts`, `import/import-text-state.ts`, `import/import-url-state.ts`, `import/preview-state.ts`, `import/settings-state.ts`, `import/workflow-import-state.ts`
+   - Most are signal bags + reset functions. Test the contract: initial values, mutation, reset behaviour. Pattern follows existing `src/app/stores/DialogStore.test.ts`.
+2. **Property-based tests for additional transforms.** Extend `src/core/property-*.test.ts` to cover `derive`, `fold`, `pivot`, `window`. Reuse generators from `src/core/property-generators.ts`. Properties to consider:
+   - `derive`: row-count preserved, declared schema matches actual cell types, identity (deriving `col` as `col` is no-op).
+   - `fold` / `pivot`: round-trip (`pivot(fold(x))` ≈ `x` modulo column ordering for well-formed inputs), row-count relationship.
+   - `window`: row-count preserved, partition-then-aggregate equivalence.
+3. **Join properties.** Build a two-table generator (the deferred piece — needs `TransformContext` setup with two source models). Properties: left-join cardinality preservation when right key is unique, no-op identity for empty right (already pinned in example tests but worth a property), null-key non-matching invariant.
+
+**Suggested order:** stores first (mechanical) → transform property tests → join properties. Stores can be parallelised with sub-agents the same way Session 1 was.
+
+**Estimated delta:** +30 to +60 tests.
+
+### Session 3 — Architectural mocking lift
+
+**Goal:** kill the two over-mocked tests identified in the Tier 2 audit. Both fail Failure Mode 2 ("mocked-away interesting parts") — they mock internal domain services rather than I/O boundaries.
+
+**Targets:**
+
+1. `src/app/services/WorkflowImportService.test.ts` — 596 lines of test against a 158-line service, mocking `StepService`, `DependencyService`, etc. The mocks are a symptom: business logic and orchestration are entangled in the service.
+2. `src/app/services/lazy-loading-data-integrity.test.ts` — same pattern with the lazy-loading flow.
+
+**Likely shape of the work:**
+
+- Identify the seams. What's actually I/O (PapaParse, IndexedDB) vs. domain logic that should run real?
+- Either (a) refactor the services so the domain logic doesn't need internal stubs, or (b) accept partial cleanup and document why the remaining mocks are genuine I/O boundaries.
+- Question to answer up front: **do we want to fix the architecture, or accept partial cleanup?** Architectural fix is the bigger lift but unblocks similar tests in future. Either outcome is a valid Session 3 close.
+- Likely related: the `WorkflowImportDialog` parsing-vs-presentation split flagged in Session 1 findings — extracting a `parseWorkflowFile()` helper would also let that dialog be tested end-to-end.
+
+**Risks:**
+
+- This is the only session where source-file changes are likely beyond test files. Validate refactors don't change observable behaviour.
+- May surface that some current behaviour is wrong (test-pinned bugs). Treat each finding the way Batch 1's empty-model join bug was treated: pin, decide, fix.
+
+**Estimated delta:** test count may go _down_ if we collapse mocked tests into fewer, more honest ones. The win is qualitative (test signal), not quantitative.
+
+### Session 4 — Wrap-up (closing session)
+
+**Goal:** declare the testing overhaul done.
+
+**Scope:**
+
+1. Final pass on `TESTING_PROGRESS.md`: mark all sessions ✅, write a single closing log entry with final test count and what shipped.
+2. Move anything still queued (e.g., a11y items, `ImputeDialog` hardcoded preview, `ParseDateDialog` format drift) to `BACKLOG.md` so it's not lost.
+3. ~~Remove the stale `DownloadDialog i18n` entry from BACKLOG (already i18n'd).~~ Done 2026-05-03 during alignment review.
+4. Optionally: run Stryker or a coverage-by-module pass once on `src/core/` as a _one-off_ diagnostic (not a CI gate). Read the surviving mutants for surprise findings. Skip if not needed.
+5. Update `CLAUDE.md` / `AGENTS.md` if any guidance changed (e.g., the new plural-resolution behaviour in `test-setup.ts`).
+
+**Estimated delta:** ~0 tests (documentation + cleanup).
 
 ---
 
@@ -181,3 +271,5 @@ Conventions that emerged while writing Batch 1 have been promoted into [DEVELOPM
 - **2026-05-01** — Batch 3 partial close. Built the adversarial fixture library (`src/__fixtures__/`, nine modules, per-fixture imports), wired into `schema-engine.test.ts` (27 inference tests) and a new `src/cli/file-loader.test.ts` (10 CSV-parsing tests). Added `src/core/composition.test.ts` with five multi-step scenarios. Pinned scientific-notation contract (integer/float, lossy-round-trip accepted). Surfaced one concrete finding: mixed CRLF/LF line endings throw a parse error because PapaParse picks the row terminator from the first newline. +42 tests (2296 → 2338). Tier 2 audit (handlers, services, components) still queued.
 - **2026-05-03** — Kicked off property-based testing. Added `fast-check@4.7.0`, built a shared dataframe generator (`src/core/property-generators.ts`) with null sprinkling and chain-based arbitraries, and wrote 17 pilot property tests across filter (4), select (4), sort (4), and aggregate (5). All pass, typecheck clean, suite still ≈15 s. One finding: filter idempotence breaks on empty results due to Arquero's `from([])` schema-loss; documented as carve-out. Join properties deferred (two-table generator complexity). +17 tests (2338 → 2355).
 - **2026-05-03** — Tier 2 audit + test additions. Inventoried ~150 source files across 8 layers; sampled 20 tests (12/20 behaviour-focused, 4 over-mocked in services layer, 2 borderline, 2 top-tier). Confirmed Failure Mode 2 (mocked-away interesting parts) concentrated in service layer, Failure Mode 3 (composition gaps) with only 1 multi-step E2E. Added DialogStore tests (19 tests, previously 0% store coverage), join E2E scenario (multi-source import → join → derive → export), WindowDialog tests (7 tests, most complex untested dialog). Surfaced latent ID-collision bug: same-millisecond Date.now() causes resolveModelInput to resolve wrong source. +27 tests (2355 → 2382).
+- **2026-05-03** — Tier 2 close-out Session 1: dialog coverage. Wrote the `DedupeDialog` test as a template (8 tests), then fanned out four parallel sub-agents with the template as reference. Closed coverage on 19 previously-untested dialogs across four batches: A (Append/Describe/Impute/Spread/Unroll, +34), B (six pattern + regexp dialogs, +42), C (TypeConversion/Generate/ImportText/ImportUrl/Download, +37), D (three meta dialogs: WorkflowImport/DependencyImpact/StepRemoval, +23). Total +144 tests (2382 → 2526). All green, typecheck clean, suite ≈16.6 s. Surfaced one real bug (DependencyImpactDialog plural keys broken for English), one stale BACKLOG entry (DownloadDialog already i18n'd), two a11y improvements, and several i18n drift findings. Sessions 2 (stores + remaining property tests) and 3 (architectural mocking lift) still queued.
+- **2026-05-03** — Fixed `DependencyImpactDialog` plural-keys bug surfaced in Session 1. Replaced the manual Slavic-style ternary with `t('dependencyDialog.message', { count })` so i18next picks the locale-correct plural form. Extended `src/test-setup.ts` mock to do English plural resolution (try `_one`/`_other` suffixes when `count` is supplied) so future plural-form mismatches surface in tests. Added two regression tests pinning singular and plural rendering. +2 tests (2526 → 2528). Documented Sessions 2, 3, and 4 plans in this file (Future sessions section) so they can be picked up cold.
