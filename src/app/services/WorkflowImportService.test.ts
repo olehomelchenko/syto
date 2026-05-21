@@ -29,33 +29,12 @@ vi.mock('../handlers/core/notification-handlers', () => ({
   alert: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('./StepService', () => ({
-  StepService: {
-    computeModelUpToStep: vi.fn().mockReturnValue({
-      data: [{ name: 'Alice', age: 30 }],
-      schema: [
-        { name: 'name', type: 'string' },
-        { name: 'age', type: 'integer' },
-      ],
-      columns: ['name', 'age'],
-    }),
-    createInitialSteps: vi.fn().mockReturnValue([
-      {
-        import: {
-          source: 'Test Source',
-          fileName: 'test.csv',
-          delimiter: ',',
-          headerMode: 'first-row',
-        },
-      },
-      { types: { name: 'string', age: 'integer' } },
-    ]),
-  },
-}));
+// StepService and DependencyService run real — these are pure domain services
+// and their internal stubs were masking pipeline bugs. See
+// docs/TESTING_PROGRESS.md "Session 3" for the rationale.
 
 import { WorkflowImportService } from './WorkflowImportService';
 import { PersistenceService } from './PersistenceService';
-import { StepService } from './StepService';
 import { showSuccess } from '../handlers/core/notification-handlers';
 
 // ── Helpers ────────────────────────────────────────────────
@@ -100,7 +79,7 @@ function createMultiSourceWorkflow(): V2Workflow {
       'products.csv': {
         columns: [
           { name: 'name', type: 'string' },
-          { name: 'price', type: 'number' },
+          { name: 'price', type: 'float' },
         ],
       },
     },
@@ -111,7 +90,7 @@ function createMultiSourceWorkflow(): V2Workflow {
       },
       'products.csv/Products': {
         source: 'products.csv',
-        steps: [{ types: { name: 'string', price: 'number' } }],
+        steps: [{ types: { name: 'string', price: 'float' } }],
       },
     },
     outputs: ['orders.csv/Orders', 'products.csv/Products'],
@@ -326,8 +305,15 @@ describe('WorkflowImportService', () => {
 
       await WorkflowImportService.importWorkflow(workflow, sourceData, callbacks);
 
-      // createInitialSteps is called for root models
-      expect(StepService.createInitialSteps).toHaveBeenCalledTimes(1);
+      // Root model gets an import step prepended; types step comes from the workflow
+      const model = AppStore.models.value[0];
+      expect(model.steps).toHaveLength(2);
+      expect(model.steps[0]).toMatchObject({
+        import: { source: 'sales.csv', delimiter: ',', headerMode: 'first-row' },
+      });
+      expect(model.steps[1]).toMatchObject({
+        types: { product: 'string', amount: 'integer' },
+      });
     });
 
     it('links models to their source by runtime ID', async () => {
@@ -378,10 +364,14 @@ describe('WorkflowImportService', () => {
 
       await WorkflowImportService.importWorkflow(workflow, sourceData, callbacks);
 
-      expect(StepService.computeModelUpToStep).toHaveBeenCalledTimes(1);
+      // Pipeline ran end-to-end: source data flowed through the types step into the model
+      const model = AppStore.models.value[0];
+      expect(model.data).toEqual(salesData);
+      expect(model.rowCount).toBe(2);
+      expect(model.colCount).toBe(2);
     });
 
-    it('passes correct context including previously created models', async () => {
+    it('computes both models in a multi-source workflow', async () => {
       const workflow = createMultiSourceWorkflow();
       const sourceData = new Map([
         ['orders.csv', ordersData],
@@ -391,14 +381,11 @@ describe('WorkflowImportService', () => {
 
       await WorkflowImportService.importWorkflow(workflow, sourceData, callbacks);
 
-      // Second call should include the first model in context
-      const calls = (StepService.computeModelUpToStep as any).mock.calls;
-      expect(calls).toHaveLength(2);
-
-      // First call context has no new models yet
-      expect(calls[0][2].models).toHaveLength(0);
-      // Second call context includes the first model
-      expect(calls[0][2].sources).toHaveLength(2);
+      expect(AppStore.models.value).toHaveLength(2);
+      const ordersModel = AppStore.models.value.find((m) => m.name === 'Orders');
+      const productsModel = AppStore.models.value.find((m) => m.name === 'Products');
+      expect(ordersModel?.data).toEqual(ordersData);
+      expect(productsModel?.data).toEqual(productsData);
     });
 
     it('populates model data and schema from compute result', async () => {
@@ -409,10 +396,10 @@ describe('WorkflowImportService', () => {
       await WorkflowImportService.importWorkflow(workflow, sourceData, callbacks);
 
       const model = AppStore.models.value[0];
-      expect(model.data).toEqual([{ name: 'Alice', age: 30 }]);
+      expect(model.data).toEqual(salesData);
       expect(model.schema).toEqual([
-        { name: 'name', type: 'string' },
-        { name: 'age', type: 'integer' },
+        expect.objectContaining({ name: 'product', type: 'string' }),
+        expect.objectContaining({ name: 'amount', type: 'integer' }),
       ]);
     });
   });
@@ -438,7 +425,7 @@ describe('WorkflowImportService', () => {
 
       await WorkflowImportService.importWorkflow(workflow, sourceData, callbacks);
 
-      expect(AppStore.columns.value).toEqual(['name', 'age']);
+      expect(AppStore.columns.value).toEqual(['product', 'amount']);
     });
 
     it('sets activeStepIndex to last step', async () => {

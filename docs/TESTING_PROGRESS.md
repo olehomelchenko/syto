@@ -14,6 +14,7 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 | Tier 2 audit (handlers, services, components)                                | 🟡 partial |
 | Tier 2 close-out Session 1 — dialog coverage                                 | ✅ done    |
 | Tier 2 close-out Session 2 — stores + property tests                         | ✅ done    |
+| Tier 2 close-out Session 3 — architectural mocking lift                      | ✅ done    |
 | Batch 1 — deterministic edge cases                                           | ✅ done    |
 | Batch 2 — contract decisions + ReDoS                                         | ✅ done    |
 | Batch 3 — adversarial fixtures + multi-step composition                      | 🟡 partial |
@@ -108,7 +109,7 @@ Update this doc as batches land, findings are resolved, or priorities shift. Dat
 
 ### Still queued for Tier 2
 
-- [ ] **Reduce mocking in WorkflowImportService and lazy-loading tests.** Both mock internal domain services (StepService, DependencyService) rather than testing against real implementations. Architectural lift required. Queued for Session 3.
+- [x] **Reduce mocking in WorkflowImportService and lazy-loading tests.** Closed Session 3 (2026-05-03). Both files now run real `StepService` and `DependencyService`. See Session 3 close-out below.
 - [x] **Untested dialogs.** Closed Session 1 (2026-05-03). 20 dialogs covered, +144 tests. See Session 1 close-out below.
 - [x] **Untested stores.** Closed Session 2 (2026-05-03). +23 tests. See Session 2 close-out below.
 - [x] **WindowDialog tests.** Added 2026-05-03. +7 tests. Complex dialog with novel logic (function config, conditional UI, auto-naming, editing).
@@ -164,6 +165,29 @@ The "~14 files" estimate from the original Session 2 plan is misleading: roughly
 
 None. The stores tests largely confirm that the reset functions match the declared initial values; the property tests run cleanly with the same `applyTransform` interface used by the example tests. The only minor surprise was that the stores directory is mostly placeholders (see above) — adjusting the plan from "~14 files" to "9 actual signal bags" — but that's a planning artifact, not a code finding.
 
+### Session 3 close-out — architectural mocking lift (2026-05-03)
+
+Goal: kill the two over-mocked tests identified in the Tier 2 audit. Both failed Failure Mode 2 ("mocked-away interesting parts") by stubbing internal domain services rather than I/O boundaries.
+
+**Up-front decision.** Two parallel Explore agents mapped the seams. The verdict was **refactor for real, not partial cleanup** — `StepService` methods are static, already accept `ComputeContext` as a parameter, and have no hidden singletons; `DependencyService` is pure computation. The mocks were convenience, not architectural necessity. The "interesting" code that was being stubbed (transform pipeline + dependency graph) is exactly what we want exercised.
+
+**`WorkflowImportService.test.ts`** (`src/app/services/`) — removed `vi.mock('./StepService')`. Kept legitimate I/O mocks (`PersistenceService.autoSave`, notification handlers). Reworked four assertions that inspected `mock.calls` to instead assert on the resulting `model.steps` / `model.data` / `model.schema`:
+
+- `prepends import step for root models` — was `expect(createInitialSteps).toHaveBeenCalledTimes(1)`. Now asserts the model has two steps: `[importStep, typesStep-from-workflow]`.
+- `computes pipeline for each model` — was `expect(computeModelUpToStep).toHaveBeenCalledTimes(1)`. Now asserts `model.data` equals the source data (passed through the real types step) and that `rowCount`/`colCount` match.
+- `computes both models in a multi-source workflow` (renamed from "passes correct context including previously created models") — instead of inspecting `mock.calls[0][2]`, asserts both models in the multi-source workflow have correct computed data.
+- `populates model data and schema from compute result` — replaced the `[{name:'Alice', age:30}]` stub expectation with the real computed shape; switched schema assertion to `expect.objectContaining` to allow for the additional `format`/`originalPosition` fields the real engine emits.
+
+**`lazy-loading-data-integrity.test.ts`** — removed `vi.mock('./DependencyService')` and `vi.mock('./StepService')`. All 9 tests passed unchanged. The mocks were genuinely just defaults that the real services produce naturally for the simple fixtures used in this file (no cross-model dependencies, single-step models). Net win: the test now exercises real graph construction and real pipeline execution against the same lazy-loading scenarios.
+
+**Delta:** ±0 tests (one renamed). Suite still ≈18 s, 2573 passing. Typecheck clean.
+
+### Findings surfaced during Session 3
+
+- **Invalid `'number'` type in `createMultiSourceWorkflow` fixture.** The fixture used `type: 'number'` for a column. Syto's type system requires `'integer'` or `'float'` — there is no `'number'`. The mock made this invisible because `computeModelUpToStep` returned a fixed result regardless of input. Real engine throws `Unknown target type: number` at compute time. **Fix:** updated the fixture to `'float'`. **Note for the future:** workflow-import does not validate column types up front against the type registry — it only fails at compute time. A v2-workflow validator could catch this earlier; filed mentally as a future ergonomic improvement (no change required for Session 3).
+- **`ColumnSchema` carries more than `{name, type}`.** The real schema includes `format: {}` and `originalPosition: number`. Tests that asserted exact equality on `[{name, type}]` shapes need `expect.objectContaining` (or to assert against the full shape). Worth noting in `DEVELOPMENT-PATTERNS.md` if this trips up a future test author.
+- **DependencyService stubs were "useful by accident."** The lazy-loading test's `DependencyService` mocks all returned defaults that happened to match what the real service returns for fixtures with no cross-model dependencies (`canDelete: true`, empty arrays, empty graphs). The mocks weren't _wrong_, just unnecessary — and they would have masked any future bug in graph construction. Removing them was free.
+
 ---
 
 ## Future sessions — close-out plan
@@ -176,26 +200,7 @@ The remaining work to call the testing overhaul "done." Each session is sized fo
 
 ### Session 3 — Architectural mocking lift
 
-**Goal:** kill the two over-mocked tests identified in the Tier 2 audit. Both fail Failure Mode 2 ("mocked-away interesting parts") — they mock internal domain services rather than I/O boundaries.
-
-**Targets:**
-
-1. `src/app/services/WorkflowImportService.test.ts` — 596 lines of test against a 158-line service, mocking `StepService`, `DependencyService`, etc. The mocks are a symptom: business logic and orchestration are entangled in the service.
-2. `src/app/services/lazy-loading-data-integrity.test.ts` — same pattern with the lazy-loading flow.
-
-**Likely shape of the work:**
-
-- Identify the seams. What's actually I/O (PapaParse, IndexedDB) vs. domain logic that should run real?
-- Either (a) refactor the services so the domain logic doesn't need internal stubs, or (b) accept partial cleanup and document why the remaining mocks are genuine I/O boundaries.
-- Question to answer up front: **do we want to fix the architecture, or accept partial cleanup?** Architectural fix is the bigger lift but unblocks similar tests in future. Either outcome is a valid Session 3 close.
-- Likely related: the `WorkflowImportDialog` parsing-vs-presentation split flagged in Session 1 findings — extracting a `parseWorkflowFile()` helper would also let that dialog be tested end-to-end.
-
-**Risks:**
-
-- This is the only session where source-file changes are likely beyond test files. Validate refactors don't change observable behaviour.
-- May surface that some current behaviour is wrong (test-pinned bugs). Treat each finding the way Batch 1's empty-model join bug was treated: pin, decide, fix.
-
-**Estimated delta:** test count may go _down_ if we collapse mocked tests into fewer, more honest ones. The win is qualitative (test signal), not quantitative.
+✅ Closed 2026-05-03. See "Session 3 close-out" above. ±0 tests; turns out the seams were structural (static methods accepting `ComputeContext`), not architectural — no service refactor was needed, just removing convenience mocks. The dialog seam (`parseWorkflowSourceFile` extraction from `WorkflowImportDialog`) was deliberately scoped out and remains a future-ergonomic item.
 
 ### Session 4 — Wrap-up (closing session)
 
@@ -284,3 +289,4 @@ Conventions that emerged while writing Batch 1 have been promoted into [DEVELOPM
 - **2026-05-03** — Tier 2 close-out Session 1: dialog coverage. Wrote the `DedupeDialog` test as a template (8 tests), then fanned out four parallel sub-agents with the template as reference. Closed coverage on 19 previously-untested dialogs across four batches: A (Append/Describe/Impute/Spread/Unroll, +34), B (six pattern + regexp dialogs, +42), C (TypeConversion/Generate/ImportText/ImportUrl/Download, +37), D (three meta dialogs: WorkflowImport/DependencyImpact/StepRemoval, +23). Total +144 tests (2382 → 2526). All green, typecheck clean, suite ≈16.6 s. Surfaced one real bug (DependencyImpactDialog plural keys broken for English), one stale BACKLOG entry (DownloadDialog already i18n'd), two a11y improvements, and several i18n drift findings. Sessions 2 (stores + remaining property tests) and 3 (architectural mocking lift) still queued.
 - **2026-05-03** — Fixed `DependencyImpactDialog` plural-keys bug surfaced in Session 1. Replaced the manual Slavic-style ternary with `t('dependencyDialog.message', { count })` so i18next picks the locale-correct plural form. Extended `src/test-setup.ts` mock to do English plural resolution (try `_one`/`_other` suffixes when `count` is supplied) so future plural-form mismatches surface in tests. Added two regression tests pinning singular and plural rendering. +2 tests (2526 → 2528). Documented Sessions 2, 3, and 4 plans in this file (Future sessions section) so they can be picked up cold.
 - **2026-05-03** — Closed Session 2: per-dialog stores + remaining property tests. Added `dialogs.test.ts` covering all nine signal-bag stores (typeConversion, importUrl, settings, preview, generate, importCsv, importText, workflowImport, reset-registry) — 23 tests. Pinned the user-prefs preservation contract on `settingsState.reset`. Property tests for the remaining transform families: derive (4), window (5), fold/pivot (6), join (7) — using a new `joinCaseArb` two-table generator with configurable key overlap and unique-by-construction right keys. Round-trip property `pivot(fold(t)) ≈ t` holds. SQL null-non-matching is now a property, not just an example. +45 tests (2528 → 2573). Suite ≈16.75 s. Sessions 3 (architectural mocking lift) and 4 (wrap-up) still queued.
+- **2026-05-03** — Closed Session 3: architectural mocking lift. Two parallel Explore agents mapped the seams in `WorkflowImportService.test.ts` and `lazy-loading-data-integrity.test.ts`; both verdicts were "refactor for real" because `StepService`/`DependencyService` are static, accept `ComputeContext` as a parameter, and have no hidden singletons. Removed `vi.mock('./StepService')` from both files and `vi.mock('./DependencyService')` from the lazy-loading file. Reworked four assertions in `WorkflowImportService.test.ts` to inspect resulting `model.steps`/`model.data`/`model.schema` instead of `mock.calls`. Lazy-loading file's 9 tests passed unchanged — the `DependencyService` stubs were "useful by accident" (returning defaults that match real behaviour for fixtures with no cross-model dependencies). Two findings: invalid `'number'` type in a multi-source workflow fixture was masked by the mock (real engine throws `Unknown target type: number`; fixed fixture to `'float'`); real `ColumnSchema` carries `format`/`originalPosition` beyond `{name, type}` (now using `expect.objectContaining`). ±0 tests (one renamed). Suite still ≈18 s, 2573 passing, typecheck clean. Session 4 (wrap-up) is the only remaining piece.

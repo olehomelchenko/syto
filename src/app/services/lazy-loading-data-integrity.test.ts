@@ -44,41 +44,9 @@ vi.mock('../handlers/core/notification-handlers', () => ({
   showWarning: vi.fn(),
 }));
 
-vi.mock('./DependencyService', () => ({
-  DependencyService: {
-    canDeleteModel: vi.fn(() => ({ canDelete: true })),
-    canDeleteSource: vi.fn(() => ({ canDelete: true })),
-    clearStaleFlag: vi.fn(),
-    getDependentModelsForUI: vi.fn(() => []),
-    markDependentsStale: vi.fn(() => []),
-    getModelsToMarkStale: vi.fn(() => []),
-    buildGraph: vi.fn(() => ({ nodes: new Map() })),
-    getExecutionOrder: vi.fn(() => []),
-    getRecomputeChain: vi.fn(() => []),
-  },
-}));
-
-vi.mock('./StepService', () => {
-  const computeResult = {
-    data: [{ name: 'Alice', age: 30 }],
-    schema: [
-      { name: 'name', type: 'string' },
-      { name: 'age', type: 'integer' },
-    ],
-  };
-  return {
-    StepService: {
-      computeModelUpToStep: vi.fn(() => computeResult),
-      createInitialSteps: vi.fn(() => [
-        {
-          import: { source: 'Test', fileName: 'test.csv', delimiter: ',', headerMode: 'first-row' },
-        },
-        { types: {} },
-      ]),
-      getContext: vi.fn(() => ({ sources: [], models: [] })),
-    },
-  };
-});
+// DependencyService and StepService run real — these are pure domain services
+// (graph computation + transform pipeline) and their internal stubs were
+// masking real bugs. See docs/TESTING_PROGRESS.md "Session 3" for the rationale.
 
 import { ReplaceSourceService } from './ReplaceSourceService';
 import { ModelService } from './ModelService';
