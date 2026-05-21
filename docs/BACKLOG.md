@@ -73,13 +73,6 @@ Add designed empty states for scenarios currently showing blank space. See [UX-S
 
 `WorkflowImportDialog.tsx` uses inline `style={{...}}` instead of CSS Modules. Every other dialog uses CSS Modules. Extract styles to `WorkflowImportDialog.module.css`.
 
-### WorkflowImportService Tests
-
-**Status**: Planned
-**Effort**: Small-Medium
-
-No tests for `WorkflowImportService` (source creation, model building, pipeline computation, state updates) or `routeToWorkflowImport` in import-handlers. Core graph utilities are tested; the integration wiring is not.
-
 ---
 
 ## Refactoring
@@ -104,6 +97,31 @@ Five preview getters (`hasPreviewData`, `getPreviewTitle`, `getPreviewStats`, `g
 **Effort**: Small-Medium
 
 `dialog-handlers.ts` has a duplicate `hasUnsavedChanges()` and its own `closeDialog()` that parallel `DialogCoordinator`'s versions. Consolidate into a single layer.
+
+---
+
+## Testing Audit Follow-ups
+
+Small items surfaced while writing tests during the testing overhaul (Tier 1–2, Sessions 1–3). None are blocking; each is a one-sitting fix. Filed here so they don't get lost.
+
+### Accessibility
+
+- **`GenerateDialog` radios are `display: none`.** Visually replaced by icon labels but only reachable via `name` attribute — not via RTL roles or assistive tech.
+- **Pattern-dialog `<select>` has no `aria-labelledby`.** Tests grab it via `screen.getByText('Match type:').nextElementSibling`, which is brittle. An `aria-labelledby` fix would tighten both the tests and the a11y story.
+
+### Dialog drift
+
+- **`ImputeDialog` preview ignores `currentData`.** Its "Strategy preview" panel runs against a hard-coded 8-row sample table with nulls regardless of real data. Misleading when the user is trying to preview against their own data.
+- **`DescribeDialog` doesn't use `useTransformPreview`.** It owns a manual `createDebouncedPreview` handle that runs synchronously on a button click. Diverges from the rest of the dialog patterns; align with the preview-engine convention.
+- **`ParseDateDialog` format/i18n drift.** `getCommonFormats()` returns 10 presets; `formatKeyMap` only re-labels 4, so 6 presets render with raw token labels. Conversely, i18n keys `parseDate.formats.iso` and `parseDate.formats.unix` are defined but never reached because `getCommonFormats()` doesn't emit `YYYY-MM-DD` or `timestamp` as preset values.
+- **`WorkflowImportDialog` mixes parsing + presentation.** PapaParse is invoked from inside the component, so testing the file-input change handler requires mocking PapaParse. Extracting a `parseWorkflowSourceFile()` helper would let the dialog be tested end-to-end without a CSV-parser mock.
+
+### Small cleanups
+
+- **Dead i18n key `errors.validation.invalid.regexPattern`.** `validation-engine.ts` uses `errors.validation.invalid.pattern`. The unused key still sits in `errors.json` but never fires.
+- **Mixed CRLF/LF line endings throw on import.** PapaParse infers the row terminator from the first newline and treats the rest as a single row. The error message is unhelpful; either auto-normalise on import or surface a clearer "mixed line endings detected" message.
+- **`createModelId()` collision under same-millisecond ID generation.** Two manual imports executed in the same `Date.now()` tick can collide; `resolveModelInput` then resolves to the wrong source. Negligible in practice (no two manual imports happen within 1 ms), but worth fixing if we ever do batch/programmatic source creation.
+- **v2-workflow type validation at import time.** Workflow import does not validate column types against the type registry up front — invalid types (e.g. `'number'` when the registry only knows `'integer'`/`'float'`) only fail later at compute time with `Unknown target type: <type>`. A pre-compute validator on the workflow JSON would surface this with a clearer error.
 
 ---
 

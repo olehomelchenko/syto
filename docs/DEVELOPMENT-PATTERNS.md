@@ -702,6 +702,8 @@ const empty = (aq as any).from([{ id: 0, name: '' }]).filter(() => false);
 
 **Multi-step composition scenarios live in `src/core/composition.test.ts`.** That file is the home for "real pipeline" tests — type drift, lookup-then-aggregate, window-rank-then-trim, null propagation through chains. Single-transform unit tests can't catch composition drift; add to `composition.test.ts` rather than wedging multi-step assertions into per-transform files.
 
+**Asserting on `ColumnSchema` shapes.** Real `ColumnSchema` values carry more than `{ name, type }` — the engine emits `format: {}` and `originalPosition: number` too. Tests that compare an entire schema with `toEqual([{ name, type }])` will fail against the real engine. Use `expect.objectContaining({ name, type })` per column, or assert against the full shape if those fields matter to the test.
+
 **Editor pipeline NFC-normalises file contents on save.** Source files containing visually identical but byte-distinct Unicode strings (e.g. NFC `café` vs NFD `café`) will have both literals collapsed to NFC by Prettier/the editor. `\uXXXX` escape sequences inside string literals get unescaped at write-time too. When a test genuinely needs distinct codepoint sequences, build them at runtime with `String.fromCharCode(0x...)` — see `src/__fixtures__/combining-marks.ts` for the canonical pattern.
 
 ---

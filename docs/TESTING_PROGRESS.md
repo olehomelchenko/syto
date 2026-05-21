@@ -2,23 +2,24 @@
 
 Companion to [TESTING_STRATEGY.md](./TESTING_STRATEGY.md). That document describes what _good_ looks like; this one tracks the state of the work against it.
 
-Update this doc as batches land, findings are resolved, or priorities shift. Date entries so it's easy to see what's stale.
+**The testing overhaul is closed as of 2026-05-03 (Session 4).** The detail below is preserved as a record of what shipped, the contract decisions made, and the findings surfaced along the way. Remaining ergonomic follow-ups live in [BACKLOG.md](BACKLOG.md) under "Testing Audit Follow-ups."
 
 ---
 
 ## Status at a glance
 
-| Area                                                                         | State      |
-| ---------------------------------------------------------------------------- | ---------- |
-| Tier 1 audit (transform core, expression language, schema, integration, e2e) | ✅ done    |
-| Tier 2 audit (handlers, services, components)                                | 🟡 partial |
-| Tier 2 close-out Session 1 — dialog coverage                                 | ✅ done    |
-| Tier 2 close-out Session 2 — stores + property tests                         | ✅ done    |
-| Tier 2 close-out Session 3 — architectural mocking lift                      | ✅ done    |
-| Batch 1 — deterministic edge cases                                           | ✅ done    |
-| Batch 2 — contract decisions + ReDoS                                         | ✅ done    |
-| Batch 3 — adversarial fixtures + multi-step composition                      | 🟡 partial |
-| Property-based testing (fast-check)                                          | ✅ done    |
+| Area                                                                         | State   |
+| ---------------------------------------------------------------------------- | ------- |
+| Tier 1 audit (transform core, expression language, schema, integration, e2e) | ✅ done |
+| Tier 2 audit (handlers, services, components)                                | ✅ done |
+| Tier 2 close-out Session 1 — dialog coverage                                 | ✅ done |
+| Tier 2 close-out Session 2 — stores + property tests                         | ✅ done |
+| Tier 2 close-out Session 3 — architectural mocking lift                      | ✅ done |
+| Tier 2 close-out Session 4 — wrap-up                                         | ✅ done |
+| Batch 1 — deterministic edge cases                                           | ✅ done |
+| Batch 2 — contract decisions + ReDoS                                         | ✅ done |
+| Batch 3 — adversarial fixtures + multi-step composition                      | ✅ done |
+| Property-based testing (fast-check)                                          | ✅ done |
 
 ---
 
@@ -190,31 +191,18 @@ Goal: kill the two over-mocked tests identified in the Tier 2 audit. Both failed
 
 ---
 
-## Future sessions — close-out plan
+## Session 4 — Wrap-up (2026-05-03)
 
-The remaining work to call the testing overhaul "done." Each session is sized for one focused work block. Pick them up cold with the brief below.
+The closing session. No new tests; this was strictly the bookkeeping pass to declare the overhaul done.
 
-### Session 2 — Stores + remaining property tests
+- Flipped Tier 2 audit and Batch 3 from 🟡 → ✅ in the status table.
+- Moved the still-standing findings (a11y items, `ImputeDialog` hardcoded preview, `DescribeDialog` divergent debounce, `ParseDateDialog` format/i18n drift, `WorkflowImportDialog` parsing/presentation mix, dead `regexPattern` i18n key, mixed CRLF/LF import error, `Date.now()` ID-collision in `resolveModelInput`, v2-workflow type validation) into [BACKLOG.md](BACKLOG.md) under a new "Testing Audit Follow-ups" section. None of these block shipping; they're ergonomic improvements grouped for discoverability.
+- Removed the stale "WorkflowImportService Tests" entry from BACKLOG — Session 3 rewrote that file to run real services, so the entry no longer matches reality.
+- Added a `ColumnSchema` shape note to [DEVELOPMENT-PATTERNS.md §3.6](DEVELOPMENT-PATTERNS.md) so the Session 3 finding (real schemas carry `format`/`originalPosition`, so use `expect.objectContaining`) is captured where test authors look.
+- Skipped Stryker — optional, no signal demanded it.
+- Skipped CLAUDE.md / AGENTS.md edits — the plural-resolution change is self-documented in `src/test-setup.ts`'s JSDoc.
 
-✅ Closed 2026-05-03. See "Session 2 close-out" above. +45 tests (2528 → 2573).
-
-### Session 3 — Architectural mocking lift
-
-✅ Closed 2026-05-03. See "Session 3 close-out" above. ±0 tests; turns out the seams were structural (static methods accepting `ComputeContext`), not architectural — no service refactor was needed, just removing convenience mocks. The dialog seam (`parseWorkflowSourceFile` extraction from `WorkflowImportDialog`) was deliberately scoped out and remains a future-ergonomic item.
-
-### Session 4 — Wrap-up (closing session)
-
-**Goal:** declare the testing overhaul done.
-
-**Scope:**
-
-1. Final pass on `TESTING_PROGRESS.md`: mark all sessions ✅, write a single closing log entry with final test count and what shipped.
-2. Move anything still queued (e.g., a11y items, `ImputeDialog` hardcoded preview, `ParseDateDialog` format drift) to `BACKLOG.md` so it's not lost.
-3. ~~Remove the stale `DownloadDialog i18n` entry from BACKLOG (already i18n'd).~~ Done 2026-05-03 during alignment review.
-4. Optionally: run Stryker or a coverage-by-module pass once on `src/core/` as a _one-off_ diagnostic (not a CI gate). Read the surviving mutants for surprise findings. Skip if not needed.
-5. Update `CLAUDE.md` / `AGENTS.md` if any guidance changed (e.g., the new plural-resolution behaviour in `test-setup.ts`).
-
-**Estimated delta:** ~0 tests (documentation + cleanup).
+**Final state.** 2573 tests passing, suite ≈18 s, typecheck clean. The "done" definition was met when the four close-out sessions landed; this session just made the docs match.
 
 ---
 
@@ -290,3 +278,4 @@ Conventions that emerged while writing Batch 1 have been promoted into [DEVELOPM
 - **2026-05-03** — Fixed `DependencyImpactDialog` plural-keys bug surfaced in Session 1. Replaced the manual Slavic-style ternary with `t('dependencyDialog.message', { count })` so i18next picks the locale-correct plural form. Extended `src/test-setup.ts` mock to do English plural resolution (try `_one`/`_other` suffixes when `count` is supplied) so future plural-form mismatches surface in tests. Added two regression tests pinning singular and plural rendering. +2 tests (2526 → 2528). Documented Sessions 2, 3, and 4 plans in this file (Future sessions section) so they can be picked up cold.
 - **2026-05-03** — Closed Session 2: per-dialog stores + remaining property tests. Added `dialogs.test.ts` covering all nine signal-bag stores (typeConversion, importUrl, settings, preview, generate, importCsv, importText, workflowImport, reset-registry) — 23 tests. Pinned the user-prefs preservation contract on `settingsState.reset`. Property tests for the remaining transform families: derive (4), window (5), fold/pivot (6), join (7) — using a new `joinCaseArb` two-table generator with configurable key overlap and unique-by-construction right keys. Round-trip property `pivot(fold(t)) ≈ t` holds. SQL null-non-matching is now a property, not just an example. +45 tests (2528 → 2573). Suite ≈16.75 s. Sessions 3 (architectural mocking lift) and 4 (wrap-up) still queued.
 - **2026-05-03** — Closed Session 3: architectural mocking lift. Two parallel Explore agents mapped the seams in `WorkflowImportService.test.ts` and `lazy-loading-data-integrity.test.ts`; both verdicts were "refactor for real" because `StepService`/`DependencyService` are static, accept `ComputeContext` as a parameter, and have no hidden singletons. Removed `vi.mock('./StepService')` from both files and `vi.mock('./DependencyService')` from the lazy-loading file. Reworked four assertions in `WorkflowImportService.test.ts` to inspect resulting `model.steps`/`model.data`/`model.schema` instead of `mock.calls`. Lazy-loading file's 9 tests passed unchanged — the `DependencyService` stubs were "useful by accident" (returning defaults that match real behaviour for fixtures with no cross-model dependencies). Two findings: invalid `'number'` type in a multi-source workflow fixture was masked by the mock (real engine throws `Unknown target type: number`; fixed fixture to `'float'`); real `ColumnSchema` carries `format`/`originalPosition` beyond `{name, type}` (now using `expect.objectContaining`). ±0 tests (one renamed). Suite still ≈18 s, 2573 passing, typecheck clean. Session 4 (wrap-up) is the only remaining piece.
+- **2026-05-03** — Closed Session 4 (wrap-up). Testing overhaul is **done**. Flipped Tier 2 audit and Batch 3 from 🟡 → ✅ in the status table; moved the remaining ergonomic findings (a11y, `ImputeDialog` hardcoded preview, `DescribeDialog` divergent debounce, `ParseDateDialog` format/i18n drift, `WorkflowImportDialog` parsing/presentation mix, dead `regexPattern` i18n key, mixed CRLF/LF import error, `Date.now()` ID-collision, v2-workflow type validation) to a new "Testing Audit Follow-ups" section in `BACKLOG.md`. Removed the stale "WorkflowImportService Tests" BACKLOG entry — Session 3 already rewrote that file to run real services. Added a `ColumnSchema` shape note to `DEVELOPMENT-PATTERNS.md §3.6` so the Session 3 finding lives where test authors look. Skipped optional Stryker pass; skipped CLAUDE/AGENTS edits since the plural-resolution change self-documents in `test-setup.ts`. **Final state: 2573 tests, suite ≈18 s, typecheck clean.** Six months of work across Batches 1–3, four Tier 2 close-out sessions, and a property-based testing pilot: from happy-path-only coverage to a suite that pins null contracts, SQL semantics, scientific notation, adversarial Unicode, multi-step composition, and SQL join properties — and that catches real bugs (empty-model join crash, plural-key rendering, `undefined → null` asymmetry, ReDoS exposure) along the way.
