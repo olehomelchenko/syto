@@ -85,7 +85,7 @@ The pattern that has NOT proven itself at scale:
 
 ### Why Weaverbird's Low Adoption Doesn't Necessarily Doom Us
 
-See [WEAVERBIRD-COMPARISON.md](../archive/WEAVERBIRD-COMPARISON.md) for full analysis. Key differences:
+See [WEAVERBIRD-COMPARISON.md](../WEAVERBIRD-COMPARISON.md) for full analysis. Key differences:
 
 1. Weaverbird was built for ToucanToco's commercial product, not as a standalone tool
 2. Weaverbird requires a server to execute anything -- you can't just use it
@@ -303,8 +303,8 @@ This is validated by both Weaverbird's architecture and SOUL.md's stated vision:
 - [SOUL.md](../SOUL.md) -- Project vision mentioning CLI/DuckDB future
 - [SPECIFICATION.md](SPECIFICATION.md) -- Core engine portability note (section 3.6)
 - [FUTURE-PROOFING.md](FUTURE-PROOFING.md) -- Schema evolution constraints
-- [WEAVERBIRD-COMPARISON.md](../archive/WEAVERBIRD-COMPARISON.md) -- Detailed comparison to architecturally similar project
-- [DECISIONS.md](archive/DECISIONS.md) -- Architecture decisions (parser, data engine, design system)
+- [WEAVERBIRD-COMPARISON.md](../WEAVERBIRD-COMPARISON.md) -- Detailed comparison to architecturally similar project
+- [DECISIONS.md](../DECISIONS.md) -- Architecture decisions (parser, data engine, design system)
 
 ---
 

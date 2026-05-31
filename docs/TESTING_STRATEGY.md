@@ -95,6 +95,7 @@ These are the test smells most likely to appear in a codebase that has tests but
 - **Obscure test** — you can't tell from reading the test what scenario it represents or why that scenario matters. Usually a sign the test was added for coverage, not for a specific concern.
 - **Slow suite** — if the full suite doesn't run comfortably in a pre-commit hook or on save, it will stop being run. Tests that aren't run aren't tests. A rough heuristic from practitioners: the unit-level suite should run in under ~15 seconds for it to stay in the active development loop.
 - **Flaky test** — passes or fails non-deterministically. Every flaky test erodes trust in the whole suite; the team eventually learns to re-run CI rather than investigate. Either fix the flake (real race condition, real time dependency, real network dependency) or delete the test.
+- **Snapshot test (UI)** — asserts on serialised markup rather than behaviour. Breaks on every benign markup change and protects nothing a user would notice. This repo does not use them: assert on what the user observes, not on the DOM shape.
 
 ---
 

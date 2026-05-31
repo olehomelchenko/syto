@@ -916,7 +916,7 @@ Workflow JSON uses the v2 portable format — name-based references, multi-sourc
 v2 is the sole workflow format, designed for CLI execution and cross-environment sharing. Uses **names** instead of IDs, supports **multiple sources/models**, includes **parsing hints**, and declares **outputs**.
 
 - **Implementation**: `src/core/workflow-v2.ts` (types, validation, translation functions)
-- **Spec**: `docs/archive/WORKFLOW-FORMAT-V2.md` (full field reference, CLI usage, edge cases)
+- **Spec**: `docs/WORKFLOW-FORMAT-V2.md` (full field reference, CLI usage, edge cases)
 - **Browser export**: `ExportService.exportWorkflowV2()` — walks upstream from active model, collects all dependencies, translates IDs to names
 - **CLI execution**: `src/cli/run-command.ts` — parses workflow, binds data files, topological-sorts models, executes pipeline
 

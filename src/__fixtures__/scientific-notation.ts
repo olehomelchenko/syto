@@ -4,7 +4,7 @@
 //
 // CONTRACT decision (2026-05-01): scientific-notation strings infer as
 // integer or float depending on whether the parsed value satisfies
-// Number.isInteger. Trade-offs documented in TESTING_PROGRESS.md.
+// Number.isInteger.
 
 // All parse to integers (Number.isInteger is true for 1e10 = 10_000_000_000).
 export const integerScientific: string[] = ['1e10', '2e5', '3e3'];

@@ -30,8 +30,7 @@ vi.mock('../handlers/core/notification-handlers', () => ({
 }));
 
 // StepService and DependencyService run real — these are pure domain services
-// and their internal stubs were masking pipeline bugs. See
-// docs/TESTING_PROGRESS.md "Session 3" for the rationale.
+// and their internal stubs were masking pipeline bugs.
 
 import { WorkflowImportService } from './WorkflowImportService';
 import { PersistenceService } from './PersistenceService';

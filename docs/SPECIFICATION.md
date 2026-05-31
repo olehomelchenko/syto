@@ -131,7 +131,7 @@ Key characteristics:
 - **Implementation**: `src/core/expression-parser.ts`, `src/core/ast-validator.ts`, `src/core/ast-interpreter.ts`
 - **Function implementations**: `src/core/functions/` (organized by category: date, math, string, regex, json, type)
 - **Tests**: `src/core/expression-parser.test.ts`, `src/core/ast-validator.test.ts`, `src/core/ast-interpreter.test.ts`
-- **Design**: See [docs/archive/DECISIONS.md](archive/DECISIONS.md) §1 for architecture rationale
+- **Design**: See [docs/DECISIONS.md](DECISIONS.md) §1 for architecture rationale
 - **Function Documentation**: See [FUNCTION-DOCS-SYSTEM.md](FUNCTION-DOCS-SYSTEM.md) for auto-generated function reference and documentation system
 
 **Note**: jsep does not track source positions (`start`/`end`) by default. Error positions come from jsep's parse error index or default to 0.

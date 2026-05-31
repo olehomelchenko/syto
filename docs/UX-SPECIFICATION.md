@@ -35,7 +35,7 @@ See [style-guide.md](style-guide.md) for brand colors, data visualization palett
 
 ### 1.4 Design Principles
 
-Principles guiding Syto's UX decisions, adapted from established design systems. See [DECISIONS.md](archive/DECISIONS.md) §3 for the evaluation rationale.
+Principles guiding Syto's UX decisions, adapted from established design systems. See [DECISIONS.md](DECISIONS.md) §3 for the evaluation rationale.
 
 | Principle                        | Meaning                                                                                                 | Example                                                                                                                                                                                   |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

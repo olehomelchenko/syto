@@ -1,56 +1,18 @@
-# Multi-Model Architecture: Dependency Graph Design
+# Multi-Model Architecture: Dependency Graph
 
-> **Purpose**: Design document for supporting declarative combinations of models (DAG), enabling reliable multi-model workflows.
+> **Purpose**: Reference for Syto's dependency-graph system — how models form a DAG, how staleness cascades, and the invariants multi-model operations (join, concat, union) must preserve.
 
-> **Related**: [BACKLOG.md](BACKLOG.md) §Set Operations, [DATA-SPECIFICATION.md](DATA-SPECIFICATION.md) §3 Transform Steps
-
----
-
-## Problem Statement
-
-The current architecture treats Models as isolated linear pipelines. While `join` transforms allow referencing other models, there is no system to:
-
-1. Track dependencies between models
-2. Detect when a referenced model has changed
-3. Trigger cascading updates to dependent models
-4. Warn users about breaking changes (e.g., deleting a model that others depend on)
-
-To support reliable multi-model workflows (join, concat, union, etc.), we need a **Dependency Graph** layer.
+> **Related**: [BACKLOG.md](BACKLOG.md), [DATA-SPECIFICATION.md](DATA-SPECIFICATION.md) §3 Transform Steps
 
 ---
 
-## Current State
+## Architecture
 
-### Existing Architecture
+Models are linear pipelines (`Source → [Step1 … StepN] → Final Data`). Multi-model operations (`join`, `concat`, `union`) reference other models by ID. A **dependency graph** layer tracks those references so the app can: detect when a referenced model changed, cascade recomputation to dependents, and warn before deleting a model others depend on.
 
-- **Models** are linear pipelines: `Source → [Step1, Step2, ..., StepN] → Final Data`
-- **Join** is the only multi-model operation, referencing targets by ID (`join.right: "mdl_xyz"`)
-- **No dependency tracking**: When Model A changes, Model B (that joins A) doesn't know
-- **Runtime resolution**: `ComputeContext` provides all sources/models; joins resolve lazily
+### Nodes
 
-### What Works Well
-
-- ID-based references (not names) — forward-compatible
-- Context-aware transforms — join already uses `TransformContext`
-- Schema propagation handles join column merging
-- Arquero supports all needed operations (`concat`, `union`, `semijoin`, etc.)
-
----
-
-## Design Decision: Models as DAG Nodes
-
-After evaluating three approaches (Models-only, Sources+Models, Transform Steps as nodes), the recommendation is:
-
-**Sources and Models as nodes, with model-level granularity.**
-
-### Rationale
-
-1. **Fits user mental model**: Users think in terms of models, not individual steps
-2. **Sufficient granularity**: Full model recomputation is fast (<100ms typical)
-3. **Simple implementation**: Graph size = number of models (typically <20)
-4. **Clear extension path**: Can add step-level optimization later if needed
-
-### Node Structure
+Both **sources and models** are nodes, at model-level granularity (no per-step nodes). The graph size equals the number of models — typically <20 — and full model recomputation is fast (<100ms typical), so finer granularity isn't worth the complexity.
 
 ```typescript
 interface DependencyNode {
@@ -61,252 +23,23 @@ interface DependencyNode {
 }
 ```
 
-### Dependency Diagram Example
-
 ```
 Source: Orders ──────► Model: Clean Orders ──────┐
                                                  ▼
 Source: Customers ───► Model: Clean Customers ─► Model: Joined Data ─► Model: Monthly Stats
 ```
 
----
+The graph is **derived state** — built on app load by scanning model transforms for references, rebuilt when models change. The single source of truth remains the model transforms; `DependencyService` owns graph building and querying (`getDependencies`, `getDependents`, `getExecutionOrder`, `hasCycle`).
 
-## Implementation Plan
+## Design Rationale
 
-### Phase 1: Dependency Tracking (~200 lines)
+**Why not persist the graph?** It's fully reconstructable from model transforms. Persisting it separately would create sync drift, add migration complexity, and violate single-source-of-truth.
 
-**Create `DependencyService.ts`**
+**Why include sources as nodes?** Completes the DAG from data origin to final output, enables "what depends on this source?" queries, and lets a re-import cascade to dependent models. Trivial cost — sources have an empty `dependencies` set.
 
-```typescript
-// src/app/services/DependencyService.ts
-export class DependencyService {
-  private graph: Map<string, DependencyNode>;
+**Why single-target transforms (not arrays)?** `concat`/`union` use `{ with: string }`, matching join's pattern. Simpler mental model; users chain multiple operations if needed. Array syntax can be added later if demand emerges.
 
-  /**
-   * Build dependency graph by scanning all models for multi-model references
-   * (join.right, concat.with, union.with, etc.)
-   */
-  buildGraph(sources: Source[], models: Model[]): void;
-
-  /** Get IDs this node depends on (upstream) */
-  getDependencies(id: string): string[];
-
-  /** Get IDs that depend on this node (downstream) */
-  getDependents(id: string): string[];
-
-  /** Topological sort for correct execution order */
-  getExecutionOrder(targetIds: string[]): string[];
-
-  /** Detect circular dependencies */
-  hasCycle(): boolean;
-}
-```
-
-**Key behaviors:**
-
-- Graph is **computed on app load**, not persisted separately
-- Rebuilt when models are added/deleted/modified
-- Single source of truth remains the model transforms
-
-**Integration points:**
-
-- `AppStore` — rebuild graph on model list changes
-- `ModelService.deleteModel()` — check dependents first, warn user
-
-### Phase 2: Cascading Updates (~150 lines)
-
-**Add staleness tracking to Model interface:**
-
-```typescript
-interface Model {
-  // ... existing fields
-  isStale?: boolean; // True if a dependency changed but not yet recomputed
-}
-```
-
-**Cascade flow:**
-
-1. Model A changes (step added/edited/deleted)
-2. `DependencyService.getDependents("mdl_A")` returns [Model B, Model C]
-3. Mark Models B and C as `isStale: true`
-4. When user views a stale model → auto-recompute
-5. Clear `isStale` flag after successful recomputation
-
-**UI indicators:**
-
-- Show "stale" badge on model in sidebar
-- Brief loading state when auto-recomputing
-
-### Phase 3: New Multi-Model Operations (~100 lines each)
-
-Follow the existing `join` pattern for new operations:
-
-**Concat** (stack rows, keep duplicates):
-
-```typescript
-interface TransformStep {
-  concat?: {
-    with: string; // Model or Source ID
-  };
-}
-```
-
-**Union** (stack rows, remove duplicates):
-
-```typescript
-interface TransformStep {
-  union?: {
-    with: string; // Model or Source ID
-  };
-}
-```
-
-**Implementation in transforms.ts:**
-
-```typescript
-if (transform.concat) {
-  const targetTable = resolveTarget(transform.concat.with, context);
-  return table.concat(targetTable);
-}
-
-if (transform.union) {
-  const targetTable = resolveTarget(transform.union.with, context);
-  return table.union(targetTable);
-}
-```
-
----
-
-## Design Decisions
-
-### Why not persist the graph?
-
-The dependency graph is **derived state** — it can be fully reconstructed from model transforms. Persisting it separately would:
-
-- Create sync issues if transforms change without graph update
-- Add migration complexity
-- Violate single-source-of-truth principle
-
-### Why include Sources as nodes?
-
-Although `Model.sourceId` already tracks the source relationship:
-
-- Completes the DAG from data origin to final output
-- Enables "what depends on this source?" queries
-- Future: if source data changes (re-import), cascade to all dependent models
-- Trivial cost (sources have empty `dependencies` set)
-
-### Why single-target transforms (not arrays)?
-
-For `concat` and `union`, we use `{ with: string }` not `{ with: string[] }`:
-
-- Simpler mental model: one operation, one target
-- Users can chain multiple concats if needed
-- Matches join's existing pattern
-- Array syntax can be added later if demand emerges
-
-### Why lazy recomputation?
-
-Mark stale → compute on view, rather than immediate cascade:
-
-- Avoids unnecessary work if user never views the model
-- Better UX — user sees their current view immediately
-- Cascade can be expensive with deep dependency chains
-
----
-
-## Future Considerations
-
-### Step-Level Granularity (Not Recommended Now)
-
-If performance becomes an issue (models with 20+ steps, recomputation >1 second):
-
-- Track which step creates each dependency
-- Recompute only from the dependent step onwards
-- Adds significant complexity; defer until profiling shows need
-
-### Dependency Visualization
-
-Potential future feature: visual DAG showing model relationships
-
-- Would use the same `DependencyService` data
-- Could highlight stale models, cascade paths
-- Not essential for v1
-
-### Multi-Target Operations
-
-If users frequently need `concat([A, B, C])`:
-
-- Extend schema to support arrays
-- Or: provide "concat all" UI that generates chained single concats
-
----
-
-## Verification Plan
-
-### Unit Tests for DependencyService
-
-```typescript
-describe('DependencyService', () => {
-  it('builds graph from models with join references');
-  it('returns empty dependencies for sources');
-  it('detects circular dependencies');
-  it('returns correct topological order');
-  it('finds all dependents of a model');
-});
-```
-
-### Integration Tests
-
-```typescript
-describe('Cascading updates', () => {
-  it('marks dependent models stale when source model changes');
-  it('recomputes stale model when viewed');
-  it('warns before deleting model with dependents');
-});
-```
-
----
-
-## Implementation Status
-
-**Phase 1: Dependency Tracking** — ✅ Complete (January 2025)
-
-- Created `DependencyService.ts` with full graph building and querying
-- 24 unit tests covering all graph operations
-- Integrated into `ModelService.deleteCurrentModel()` and `deleteSource()`
-- Users now get warnings when trying to delete models referenced by others
-
-**Phase 2: Staleness Tracking** — ✅ Complete (January 2025)
-
-- Added `isStale` field to Model interface
-- `markDependentsStale()` called automatically when model data changes
-- Auto-recompute in `ModelService.switchToModel()` for stale models
-- UI indicators deferred (logic layer complete)
-
-**Phase 3: New Operations** — ✅ Complete (January 2025)
-
-- Concat and union transforms implemented with full UI integration
-- Added to `extractReferencedIds()` and transforms.ts
-- Dependency tracking, staleness marking, and delete protection working
-- Stale model indicators in Sidebar and DatasetInfoView
-- Dependency tooltips showing relationship counts
-
-**Phase 4: Model Chaining** — ✅ Complete (March 2026)
-
-- `sourceId` can reference another model, enabling pipeline chains
-- `StepService` resolves input from source or parent model
-- Sidebar/JoinTreeSelector group chained models under root source
-- `getRootSourceId()` and `getUpstreamDependencies()` added to DependencyService
-
-**Phase 5: Name Uniqueness** — ✅ Complete (March 2026)
-
-- Model names unique per-source, source names globally unique
-- `NameService` provides centralized uniqueness checking
-- Auto-dedup on import via `suggestUniqueName()`
-- v2 export uses `sourceName/modelName` composite keys for global uniqueness
-
----
+**Why lazy recomputation?** Mark stale → compute on view, rather than immediate cascade. Avoids work if the user never views the model, shows the current view immediately, and avoids expensive eager cascades down deep chains.
 
 ## Model Chaining
 
@@ -329,7 +62,7 @@ When `sourceId` is resolved, the lookup **must** check sources first, then fall 
 
 ### Cycle Detection
 
-Already handled — `DependencyService.checkCircularDependency()` and `hasCycle()` operate on the full graph which includes `sourceId` edges.
+Handled by `DependencyService.checkCircularDependency()` and `hasCycle()`, which operate on the full graph including `sourceId` edges.
 
 ---
 
@@ -347,7 +80,7 @@ For the v2 workflow format, globally-unique model keys are constructed as `sourc
 
 ## Implementation Rules
 
-Constraints and conventions discovered during implementation. Violating these causes data correctness bugs.
+Constraints discovered during implementation. Violating these causes data-correctness bugs.
 
 ### Recomputation Order
 
@@ -369,7 +102,3 @@ When a user applies a step that has downstream dependents, the dependency impact
 
 - The step must be fully rolled back: pop from `model.steps`, recompute data from remaining steps, restore AppStore signals
 - The undo snapshot pushed before the step must also be popped (nothing to undo)
-
----
-
-**Status**: All phases complete ✅

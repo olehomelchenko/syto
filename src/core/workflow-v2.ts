@@ -2,7 +2,7 @@
  * Workflow Format v2 — Portable workflow specification
  *
  * Portable module (no browser APIs, no Preact). Used by both browser export
- * and CLI execution. See docs/future/WORKFLOW-FORMAT-V2.md for full spec.
+ * and CLI execution. See docs/WORKFLOW-FORMAT-V2.md for full spec.
  */
 
 import { ColumnSchema, TransformStep } from './schema-engine';

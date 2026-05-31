@@ -46,7 +46,7 @@ vi.mock('../handlers/core/notification-handlers', () => ({
 
 // DependencyService and StepService run real — these are pure domain services
 // (graph computation + transform pipeline) and their internal stubs were
-// masking real bugs. See docs/TESTING_PROGRESS.md "Session 3" for the rationale.
+// masking real bugs.
 
 import { ReplaceSourceService } from './ReplaceSourceService';
 import { ModelService } from './ModelService';

@@ -26,7 +26,6 @@ See @AGENTS.md for project overview, security requirements, codebase orientation
 
 - **[DEVELOPMENT-PATTERNS.md](docs/DEVELOPMENT-PATTERNS.md)**: How to add transforms, testing patterns, state management conventions
 - **[TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md)**: Testing principles, diagnostic questions, failure modes, and audit protocol — _read before adding or evaluating tests_
-- **[TESTING_PROGRESS.md](docs/TESTING_PROGRESS.md)**: Living log of testing-coverage work — what's done, queued, and postponed
 - **[I18N-GUIDE.md](docs/I18N-GUIDE.md)**: Internationalization setup — adding languages, namespaces, plural rules, common patterns
 - **[FUNCTION-DOCS-SYSTEM.md](docs/FUNCTION-DOCS-SYSTEM.md)**: Auto-generated function documentation system (JSDoc → markdown/JSON)
 - **[DEBUGGING.md](docs/DEBUGGING.md)**: CSS Module debugging and DevTools tips
@@ -38,7 +37,7 @@ See @AGENTS.md for project overview, security requirements, codebase orientation
 ### Reference
 
 - **[docs/arquero/](docs/arquero/)**: Arquero library documentation (verbs, expressions, operators)
-- **[docs/archive/](docs/archive/)**: Architecture Decision Records, completed specs, and research archives
+- **[DECISIONS.md](docs/DECISIONS.md)**: Architecture Decision Records
 - **[docs/future/](docs/future/)**: Future roadmap documents (CLI, native app, monetization, example workflows)
 - **[CHANGELOG.md](docs/CHANGELOG.md)**: Historical record of completed features and improvements
 
@@ -56,7 +55,6 @@ See @AGENTS.md for project overview, security requirements, codebase orientation
 | Architecture review    | [ARCHITECTURE-REVIEW.md](docs/ARCHITECTURE-REVIEW.md)                                                    |
 | Testing patterns       | [DEVELOPMENT-PATTERNS.md](docs/DEVELOPMENT-PATTERNS.md) §3                                               |
 | Testing strategy       | [TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md)                                                          |
-| Testing progress log   | [TESTING_PROGRESS.md](docs/TESTING_PROGRESS.md)                                                          |
 | State management       | [DEVELOPMENT-PATTERNS.md](docs/DEVELOPMENT-PATTERNS.md) §2                                               |
 | UI component patterns  | [UX-SPECIFICATION.md](docs/UX-SPECIFICATION.md) §3                                                       |
 | UI vocabulary & terms  | [UI-VOCAB.md](docs/UI-VOCAB.md)                                                                          |
@@ -66,7 +64,7 @@ See @AGENTS.md for project overview, security requirements, codebase orientation
 | Adding tool pages      | [DEVELOPMENT-PATTERNS.md](docs/DEVELOPMENT-PATTERNS.md) §10                                              |
 | Site structure         | [SPECIFICATION.md](docs/SPECIFICATION.md) §3.5                                                           |
 | CSS debugging          | [DEBUGGING.md](docs/DEBUGGING.md)                                                                        |
-| Architecture decisions | [docs/archive/DECISIONS.md](docs/archive/DECISIONS.md)                                                   |
+| Architecture decisions | [docs/DECISIONS.md](docs/DECISIONS.md)                                                                   |
 | CLI & workflow v2      | [SPECIFICATION.md](docs/SPECIFICATION.md) §3.6, [DATA-SPECIFICATION.md](docs/DATA-SPECIFICATION.md) §7.2 |
 | Multi-model & chaining | [MULTI-MODEL-ARCHITECTURE.md](docs/MULTI-MODEL-ARCHITECTURE.md)                                          |
 | Versioning & release   | [DEVELOPMENT-PATTERNS.md](docs/DEVELOPMENT-PATTERNS.md) §11, [AGENTS.md](AGENTS.md) §Versioning          |

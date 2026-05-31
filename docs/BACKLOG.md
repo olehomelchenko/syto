@@ -83,12 +83,12 @@ Ordered by analyst impact and how cleanly each unblocks a real workflow gap.
 
 ### Transform Gaps
 
-> **See also**: [TRANSFORM-ARCHITECTURE-REVIEW.md](TRANSFORM-ARCHITECTURE-REVIEW.md) for comprehensive analysis of transform architecture, identified gaps, and prioritized improvements based on Power Query M limitations research.
+> **See also**: [TRANSFORM-ARCHITECTURE-REVIEW.md](TRANSFORM-ARCHITECTURE-REVIEW.md) for the transform design principles and the Power Query M limitation comparison that shapes which gaps are worth filling.
 
 #### Top N per Group
 
 **Effort**: Small-Medium
-**Origin**: [Weaverbird comparison](archive/WEAVERBIRD-COMPARISON.md) — WB's `top` step
+**Origin**: [Weaverbird comparison](WEAVERBIRD-COMPARISON.md) — WB's `top` step
 
 A transform that returns the top (or bottom) N rows within each group, ordered by a value column. Example: "top 5 products by sales in each category."
 
@@ -99,7 +99,7 @@ A transform that returns the top (or bottom) N rows within each group, ordered b
 #### Fill Date Gaps
 
 **Effort**: Medium
-**Origin**: [Weaverbird comparison](archive/WEAVERBIRD-COMPARISON.md) — WB's `addmissingdates` step
+**Origin**: [Weaverbird comparison](WEAVERBIRD-COMPARISON.md) — WB's `addmissingdates` step
 
 An `addMissingDates` transform that fills gaps in time series data. Given a date column and a granularity (day/week/month), generates missing rows with null values for metric columns.
 
@@ -193,4 +193,4 @@ These have been considered and explicitly excluded:
 
 ## Closed-out areas
 
-- **Non-Destructive Pillar Strengthening** — analysis complete, no remaining gaps. See [DECISIONS.md §4](archive/DECISIONS.md) for what was shipped and what was decided against.
+- **Non-Destructive Pillar Strengthening** — analysis complete, no remaining gaps. See [DECISIONS.md §4](DECISIONS.md) for what was shipped and what was decided against.

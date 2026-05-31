@@ -8,7 +8,7 @@
  *   syto validate <workflow> Validate a workflow without executing
  *   syto schema <file>       Inspect a data file's schema
  *
- * See docs/future/WORKFLOW-FORMAT-V2.md for the workflow format specification.
+ * See docs/WORKFLOW-FORMAT-V2.md for the workflow format specification.
  */
 
 // Initialize i18n (English only, no Preact bindings)

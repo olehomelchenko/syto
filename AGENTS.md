@@ -119,7 +119,6 @@ The project uses **simplified semver during pre-1.0** (`0.x.y`):
 - Tests co-located in `src/core/*.test.ts`
 - UI tests in `src/app/components/*.test.tsx`
 - See [TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) for diagnostic questions, failure modes, and the audit protocol for evaluating new or existing tests
-- See [TESTING_PROGRESS.md](docs/TESTING_PROGRESS.md) for the current state of coverage work — what's done, queued, and postponed
 
 ---
 
@@ -133,5 +132,4 @@ The project uses **simplified semver during pre-1.0** (`0.x.y`):
 | [UX-SPECIFICATION.md](docs/UX-SPECIFICATION.md)         | UI/UX guidelines, component patterns, theming        |
 | [DEVELOPMENT-PATTERNS.md](docs/DEVELOPMENT-PATTERNS.md) | Coding conventions, adding transforms, testing       |
 | [TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md)         | Testing principles, diagnostics, audit protocol      |
-| [TESTING_PROGRESS.md](docs/TESTING_PROGRESS.md)         | Living log of testing-coverage work                  |
 | [FUTURE-PROOFING.md](docs/FUTURE-PROOFING.md)           | Schema evolution constraints                         |
