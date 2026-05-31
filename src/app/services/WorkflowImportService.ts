@@ -1,5 +1,7 @@
+import Papa from 'papaparse';
 import {
   V2Workflow,
+  V2SourceDef,
   translateNamesToIds,
   getReachableModels,
   topologicalSortV2,
@@ -13,6 +15,15 @@ import { showSuccess } from '../handlers/core/notification-handlers';
 import { DataRow, Source, Model } from '../types';
 import i18n from '../../i18n';
 
+export interface ParsedWorkflowSource {
+  /** Parsed rows; `null` when parsing failed hard (e.g. PapaParse `error` callback fired). */
+  data: DataRow[] | null;
+  /** Observed column headers; `null` on hard parse failure. */
+  columns: string[] | null;
+  /** Non-null when parsing failed, or when expected columns are missing (column-mismatch warning). */
+  error: string | null;
+}
+
 export interface WorkflowImportCallbacks {
   updatePagination: () => void;
   closeDialog: () => void;
@@ -25,6 +36,43 @@ export interface WorkflowImportCallbacks {
  * from the workflow definition and user-provided data files.
  */
 export class WorkflowImportService {
+  /**
+   * Parse a CSV/TSV file the user has picked for a workflow source, and check
+   * its columns against the source definition's expected columns.
+   *
+   * Returns the parsed rows + observed columns + a non-null `error` string if
+   * either parsing failed or expected columns are missing. The component layer
+   * is responsible only for dispatching the file and rendering the result.
+   */
+  static parseSourceFile(file: File, sourceDef: V2SourceDef): Promise<ParsedWorkflowSource> {
+    const delimiter = sourceDef.parsing?.delimiter || ',';
+    return new Promise((resolve) => {
+      Papa.parse(file, {
+        header: true,
+        delimiter,
+        skipEmptyLines: true,
+        dynamicTyping: true,
+        complete: (results) => {
+          const data = results.data as DataRow[];
+          const columns = results.meta.fields || [];
+          const expectedCols = sourceDef.columns.map((c) => c.name);
+          const missing = expectedCols.filter((c) => !columns.includes(c));
+          const error =
+            missing.length > 0
+              ? i18n.t('dialogs:workflowImport.columnMismatch', {
+                  count: missing.length,
+                  columns: missing.join(', '),
+                })
+              : null;
+          resolve({ data, columns, error });
+        },
+        error: (err) => {
+          resolve({ data: null, columns: null, error: err.message });
+        },
+      });
+    });
+  }
+
   /**
    * Import a validated v2 workflow with bound source data.
    */

@@ -91,7 +91,7 @@ The registry entry uses `bridgedDialogEntry()`; its `applyHandler` reads `Dialog
 - `useSignalEffect` — side-effectful reaction to signal changes (update another signal)
 - `useTransformPreview` / `createDebouncedPreview` — debounced data preview with table output
 
-For **manual-trigger previews** (button click, not auto-triggered), use `createDebouncedPreview` directly with a `useRef` — `useTransformPreview`'s `deps`-based auto-trigger is wrong there.
+For **manual-trigger previews** (button click, not auto-triggered), use `useTransformPreview` with `autoTrigger: false` and call `preview.compute()` from the click handler. See `DescribeDialog` for the canonical example.
 
 **i18n + docs + tests:**
 

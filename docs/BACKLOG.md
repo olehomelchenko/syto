@@ -89,9 +89,8 @@ Small items surfaced while writing tests during the testing overhaul. None are b
 ### Dialog drift
 
 - **`ImputeDialog` preview ignores `currentData`.** Its "Strategy preview" panel runs against a hard-coded 8-row sample table with nulls regardless of real data. Misleading when the user is trying to preview against their own data.
-- **`DescribeDialog` doesn't use `useTransformPreview`.** It owns a manual `createDebouncedPreview` handle that runs synchronously on a button click. Diverges from the rest of the dialog patterns; align with the preview-engine convention.
 - **`ParseDateDialog` format/i18n drift.** `getCommonFormats()` returns 10 presets; `formatKeyMap` only re-labels 4, so 6 presets render with raw token labels. Conversely, i18n keys `parseDate.formats.iso` and `parseDate.formats.unix` are defined but never reached because `getCommonFormats()` doesn't emit `YYYY-MM-DD` or `timestamp` as preset values.
-- **`WorkflowImportDialog` mixes parsing + presentation.** PapaParse is invoked from inside the component, so testing the file-input change handler requires mocking PapaParse. Extracting a `parseWorkflowSourceFile()` helper would let the dialog be tested end-to-end without a CSV-parser mock.
+- **`AggregateDialog`, `PivotDialog`, `WindowDialog` still use the bespoke `createDebouncedPreview` + `useRef` pattern.** Manual-trigger mode now exists on `useTransformPreview` (`autoTrigger: false`); these three dialogs can converge on it the same way `DescribeDialog` did.
 
 ### Small cleanups
 

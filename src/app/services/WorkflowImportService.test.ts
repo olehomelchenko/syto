@@ -580,4 +580,63 @@ describe('WorkflowImportService', () => {
       expect(source.customHeaders).toEqual(['col_a', 'col_b']);
     });
   });
+
+  describe('parseSourceFile', () => {
+    function makeCsvFile(content: string, name = 'data.csv'): File {
+      return new File([new Blob([content], { type: 'text/csv' })], name, { type: 'text/csv' });
+    }
+
+    it('parses CSV rows and returns observed columns when headers match', async () => {
+      const file = makeCsvFile('product,amount\nWidget,10\nGadget,20');
+      const sourceDef = {
+        columns: [
+          { name: 'product', type: 'string' as const },
+          { name: 'amount', type: 'integer' as const },
+        ],
+      };
+
+      const result = await WorkflowImportService.parseSourceFile(file, sourceDef);
+
+      expect(result.error).toBeNull();
+      expect(result.columns).toEqual(['product', 'amount']);
+      expect(result.data).toEqual([
+        { product: 'Widget', amount: 10 },
+        { product: 'Gadget', amount: 20 },
+      ]);
+    });
+
+    it('returns a column-mismatch warning when expected columns are missing', async () => {
+      const file = makeCsvFile('product\nWidget\nGadget');
+      const sourceDef = {
+        columns: [
+          { name: 'product', type: 'string' as const },
+          { name: 'amount', type: 'integer' as const },
+        ],
+      };
+
+      const result = await WorkflowImportService.parseSourceFile(file, sourceDef);
+
+      // Data is still populated — the mismatch is a warning, not a fatal error
+      expect(result.data).toEqual([{ product: 'Widget' }, { product: 'Gadget' }]);
+      expect(result.columns).toEqual(['product']);
+      expect(result.error).toMatch(/amount/);
+    });
+
+    it('respects the source definition delimiter', async () => {
+      const file = makeCsvFile('product\tamount\nWidget\t10', 'data.tsv');
+      const sourceDef = {
+        columns: [
+          { name: 'product', type: 'string' as const },
+          { name: 'amount', type: 'integer' as const },
+        ],
+        parsing: { delimiter: '\t' },
+      };
+
+      const result = await WorkflowImportService.parseSourceFile(file, sourceDef);
+
+      expect(result.error).toBeNull();
+      expect(result.columns).toEqual(['product', 'amount']);
+      expect(result.data).toEqual([{ product: 'Widget', amount: 10 }]);
+    });
+  });
 });

@@ -1,4 +1,3 @@
-import Papa from 'papaparse';
 import i18n from '../../i18n/core';
 import { DialogStore } from '../stores/DialogStore';
 import { WorkflowImportService } from '../services/WorkflowImportService';
@@ -22,46 +21,12 @@ export function WorkflowImportDialog() {
     return b && b.data && !b.error;
   });
 
-  // TODO: parsing + presentation entanglement. PapaParse is invoked from inside this
-  // component, so the file-input flow can't be tested without mocking PapaParse, and
-  // the parser/validator can't be reused outside the dialog. Extract a
-  // `parseWorkflowSourceFile()` helper (or move the logic into WorkflowImportService)
-  // so the component just dispatches and renders. Tracked under TESTING_PROGRESS.md
-  // Session 3 — architectural mocking lift.
-  const handleFilePick = (sourceName: string, file: File) => {
+  const handleFilePick = async (sourceName: string, file: File) => {
     const sourceDef = workflow.sources[sourceName];
-    const delimiter = sourceDef.parsing?.delimiter || ',';
-
-    Papa.parse(file, {
-      header: true,
-      delimiter,
-      skipEmptyLines: true,
-      dynamicTyping: true,
-      complete: (results) => {
-        const data = results.data as any[];
-        const columns = results.meta.fields || [];
-
-        // Check column match
-        const expectedCols = sourceDef.columns.map((c) => c.name);
-        const missing = expectedCols.filter((c) => !columns.includes(c));
-        const error =
-          missing.length > 0
-            ? i18n.t('dialogs:workflowImport.columnMismatch', {
-                count: missing.length,
-                columns: missing.join(', '),
-              })
-            : null;
-
-        const newBindings = new Map(state.bindings.value);
-        newBindings.set(sourceName, { file, data, columns, error });
-        state.bindings.value = newBindings;
-      },
-      error: (err) => {
-        const newBindings = new Map(state.bindings.value);
-        newBindings.set(sourceName, { file, data: null, columns: null, error: err.message });
-        state.bindings.value = newBindings;
-      },
-    });
+    const parsed = await WorkflowImportService.parseSourceFile(file, sourceDef);
+    const newBindings = new Map(state.bindings.value);
+    newBindings.set(sourceName, { file, ...parsed });
+    state.bindings.value = newBindings;
   };
 
   const handleImport = async () => {

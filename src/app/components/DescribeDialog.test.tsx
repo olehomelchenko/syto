@@ -82,7 +82,7 @@ describe('DescribeDialog', () => {
     const previewBtn = screen.getByText('Preview result') as HTMLButtonElement;
     fireEvent.click(previewBtn);
 
-    // Button still in DOM after click (compute runs synchronously through the manual handle)
+    // Button still in DOM after click (preview.compute bypasses debounce and runs synchronously)
     expect(screen.getByText('Preview result')).toBeDefined();
   });
 

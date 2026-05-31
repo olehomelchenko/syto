@@ -24,22 +24,32 @@ export interface TransformPreviewConfig {
   /**
    * Signal dependency tracker. Called inside useSignalEffect —
    * any signals read here trigger a debounced preview recompute.
+   * Ignored when `autoTrigger` is false.
    *
    * @example
    * deps: () => { state.expression.value; state.column.value; }
    */
-  deps: () => void;
+  deps?: () => void;
 
   /** Debounce delay in ms. Default: 150 */
   debounceMs?: number;
 
   /** Called when preview computation throws */
   onError?: (error: Error) => void;
+
+  /**
+   * When true (default), preview auto-recomputes on signal changes read in `deps`.
+   * When false, the hook only wires up the handle + cleanup; the caller must
+   * invoke `trigger()` or `compute()` explicitly (e.g., from a button click).
+   */
+  autoTrigger?: boolean;
 }
 
 export interface TransformPreviewResult {
   /** Manually trigger a debounced preview update */
   trigger: () => void;
+  /** Immediately compute the preview, bypassing the debounce */
+  compute: () => void;
   /** Cancel any pending debounced computation */
   cancel: () => void;
 }
@@ -73,9 +83,14 @@ export function useTransformPreview(config: TransformPreviewConfig): TransformPr
   }
   const handle = handleRef.current;
 
-  // Auto-trigger preview when dependency signals change
+  // Auto-trigger preview when dependency signals change (default behaviour).
+  // When autoTrigger is false, the caller drives previews explicitly via the
+  // returned `trigger`/`compute` handles — used by DescribeDialog where the
+  // preview is gated behind a button click rather than live edits.
+  const autoTrigger = config.autoTrigger ?? true;
   useSignalEffect(() => {
-    config.deps();
+    if (!autoTrigger) return;
+    config.deps?.();
     handle.trigger();
   });
 
@@ -88,6 +103,7 @@ export function useTransformPreview(config: TransformPreviewConfig): TransformPr
 
   return {
     trigger: () => handle.trigger(),
+    compute: () => handle.compute(),
     cancel: () => handle.cancel(),
   };
 }
