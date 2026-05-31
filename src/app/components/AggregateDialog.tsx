@@ -1,15 +1,14 @@
 import { signal } from '@preact/signals';
-import { useRef, useEffect } from 'preact/hooks';
 import { useTranslation } from 'preact-i18next';
 import { AppStore } from '../stores/AppStore';
 import { useDialogState } from '../hooks/useDialogState';
+import { useTransformPreview } from '../hooks/useTransformPreview';
 import {
   computeAggregatePreview,
   generateOutputName,
   parseRollupToAggregations,
   type Aggregation,
 } from '../handlers/transform/aggregate-handlers';
-import { createDebouncedPreview, type PreviewHandle } from '../handlers/preview-engine';
 import { ColumnSelector } from './column-selector';
 import formStyles from './form-controls.module.css';
 import aggStyles from './AggregateDialog.module.css';
@@ -49,28 +48,21 @@ export function AggregateDialog() {
 
   const { groupBy, aggregations, isPreviewing, previewError } = state;
 
-  // Manual preview handle
-  const previewRef = useRef<PreviewHandle | null>(null);
-  if (previewRef.current === null) {
-    previewRef.current = createDebouncedPreview({
-      compute: () => computeAggregatePreview(groupBy.value, aggregations.value),
-      onError: (error) => {
-        previewError.value = error.message;
-      },
-    });
-  }
-
-  useEffect(() => {
-    return () => {
-      previewRef.current?.clear();
-    };
-  }, []);
+  // Aggregate previews run on explicit button click rather than live on edit,
+  // so we opt out of the hook's auto-trigger and drive `compute()` ourselves.
+  const preview = useTransformPreview({
+    autoTrigger: false,
+    compute: () => computeAggregatePreview(groupBy.value, aggregations.value),
+    onError: (error) => {
+      previewError.value = error.message;
+    },
+  });
 
   const handlePreviewClick = () => {
     isPreviewing.value = true;
     previewError.value = null;
     try {
-      previewRef.current?.compute();
+      preview.compute();
     } finally {
       isPreviewing.value = false;
     }
