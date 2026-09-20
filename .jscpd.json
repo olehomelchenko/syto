@@ -1,0 +1,7 @@
+{
+  "path": ["src"],
+  "format": ["typescript", "tsx", "css"],
+  "reporters": ["console", "threshold"],
+  "threshold": 6.49,
+  "gitignore": true
+}

@@ -1,0 +1,5 @@
+#!/bin/bash
+# Pushing is what reaches another machine, so the tip is proved here.
+# pre-commit formats and typechecks the staged files; this runs the whole suite.
+# Husky runs hooks under `sh -e`, so every command here must exit 0 on success.
+npm run typecheck && npm test

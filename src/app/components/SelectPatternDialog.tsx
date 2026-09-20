@@ -52,7 +52,7 @@ export function SelectPatternDialog() {
       </div>
 
       <div class={styles.group}>
-        {/* TODO: a11y — see RemovePatternDialog for the same finding. The <label>
+        {/* TODO(2026-05-03): a11y — see RemovePatternDialog for the same finding. The <label>
             wraps the group but is not associated with the <select>. Add
             `aria-labelledby` (or `htmlFor` + `id`) so assistive tech can announce
             it. */}

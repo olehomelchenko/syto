@@ -51,7 +51,7 @@ export function RemovePatternDialog() {
       </div>
 
       <div class={styles.group}>
-        {/* TODO: a11y — the <label> here labels the group, not the <select>. Either
+        {/* TODO(2026-05-03): a11y — the <label> here labels the group, not the <select>. Either
             give the label an `htmlFor` matching an `id` on the select, or add
             `aria-labelledby` to the select. Same gap exists in the other pattern
             dialogs (SelectPatternDialog). */}

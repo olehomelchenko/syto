@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unjs.io/schema/knip.json",
+  "entry": [
+    "src/main.tsx",
+    "src/tools/json-to-csv/main.tsx",
+    "scripts/*.{ts,mjs}",
+    "src/**/*.test.{ts,tsx}"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs}"],
+  "ignoreBinaries": ["esbuild", "gh-pages"]
+}

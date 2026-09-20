@@ -54,8 +54,9 @@ describe('Property-based: filter', () => {
         expect(twice.numRows()).toEqual(once.numRows());
 
         // Schema preservation in handleFilter only triggers when the *input* has
-        // rows (filter.ts:27). Re-filtering an already-empty table goes through
-        // aq.from([]) and loses column names. See TODO at filter.ts:27.
+        // rows. Re-filtering an already-empty table goes through aq.from([]) and
+        // loses column names. The marker in transforms/handlers/filter.ts carries
+        // the fix; this carve-out is what pins the behavior until it lands.
         if (once.numRows() > 0) {
           expect(twice.columnNames()).toEqual(once.columnNames());
         }

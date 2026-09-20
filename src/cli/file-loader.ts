@@ -21,7 +21,7 @@ export function parseCSV(
   content: string,
   hints?: V2ParsingHints
 ): { data: any[]; columns: string[] } {
-  // TODO: mixed CRLF/LF input throws a parse error because PapaParse infers
+  // TODO(2026-05-01): mixed CRLF/LF input throws a parse error because PapaParse infers
   // the row terminator from the first newline and treats the rest of the file
   // as a single row. Consider pre-normalising line endings (or surfacing a
   // clearer error). Pinned in file-loader.test.ts → "mixed CRLF/LF line

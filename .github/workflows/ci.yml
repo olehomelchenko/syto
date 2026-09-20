@@ -1,0 +1,54 @@
+# CI is not a duplicate of the pre-push hook. Local gates run in the
+# maintainer's timezone, locale and platform. This runs in UTC on Linux, which
+# is where a date-dependent or locale-dependent test goes red first.
+#
+# The gates this adds over pre-push are the ones that read the whole tree:
+# core purity, dead code, duplication, and the marker census.
+#
+# docs/HARNESS.md -> The verify gate.
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Core purity
+        run: npm run lint:core
+
+      - name: House rules
+        run: npm run lint:house
+
+      - name: Marker census
+        run: npm run lint:todo
+
+      - name: Doc pointers
+        run: npm run lint:docs
+
+      - name: Duplication
+        run: npm run lint:dup
+
+      - name: Dead code
+        run: npm run lint:unused
+
+      - name: Translation key parity
+        run: npm run i18n:check

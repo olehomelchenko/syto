@@ -64,7 +64,7 @@ export function ParseDateDialog() {
 
   const commonFormatsRaw = getCommonFormats();
 
-  // TODO: format/i18n drift — `getCommonFormats()` returns 10 presets but only 4 are
+  // TODO(2026-05-03): format/i18n drift — `getCommonFormats()` returns 10 presets but only 4 are
   // re-labelled below (us, eu, usTime, euTime). The remaining six fall through with
   // their raw token strings. Conversely, the `parseDate.formats.iso` and
   // `parseDate.formats.unix` keys are defined but unreachable: `getCommonFormats()`

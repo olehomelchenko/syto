@@ -29,7 +29,7 @@ export function handleFilter(table: any, transform: FullTransformStep, schema: s
     table.columnNames().forEach((col: string) => (emptyRow[col] = undefined));
     return (aq as any).from([emptyRow]).filter(() => false);
   } else {
-    // TODO: when the input is already empty (rows.length === 0) we fall through
+    // TODO(2026-05-03): when the input is already empty (rows.length === 0) we fall through
     // to aq.from([]) and lose column names. Filter idempotence on an empty
     // result therefore breaks schema. See property-filter.test.ts idempotence
     // carve-out. Fix would mirror the schema-preservation branch above whenever

@@ -18,6 +18,15 @@ import { runRunCommand, RunOptions } from './cli/run-command';
 import { runValidateCommand, ValidateOptions } from './cli/validate-command';
 import { runSchemaCommand, SchemaOptions } from './cli/schema-command';
 
+// TODO(2026-09-21): this is hardcoded and three minor versions behind
+// package.json (0.4.1), so `syto --help` reports a version that has not existed
+// since May. AGENTS.md names package.json's `version` the single source of
+// truth, and vite injects it as `__APP_VERSION__` — but the CLI is bundled by
+// esbuild, which defines nothing, and `npx tsx src/cli.ts` runs with no bundler
+// at all. The fix needs both paths: `--define:__APP_VERSION__` in the build:cli
+// script, and a runtime read of package.json for the tsx path. Found by running
+// the CLI, which is the only way it is visible — every test asserts on this
+// constant rather than on package.json.
 const VERSION = '0.1.0';
 
 function printUsage(): void {

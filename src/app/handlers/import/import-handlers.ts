@@ -361,7 +361,7 @@ export function resetJsonPath(): void {
 export function handleCsvPreview(file: File): void {
   const previewLimit = AppStore.uxSettings.value.preview.rowLimit;
 
-  // TODO: this file has three direct `Papa.parse(file, …)` call sites
+  // TODO(2026-05-31): this file has three direct `Papa.parse(file, …)` call sites
   // (here, the full-import flow, and `updateImportPreview`). Extracting them
   // into testable service helpers — like `WorkflowImportService.parseSourceFile`
   // did — would let these handlers be tested without mocking PapaParse.
