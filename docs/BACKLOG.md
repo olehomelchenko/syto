@@ -152,7 +152,7 @@ Create focused landing pages for common data transformation queries (e.g., "pivo
 Landing pages are zero-JS static HTML — the app's runtime i18next system cannot serve them. Multilingual landing pages require a **separate build-time i18n pipeline**:
 
 - **URL structure**: Decide early on `/{locale}/...` path prefix (e.g., `/uk/pivot-csv-online/`). This shapes routing, Vite MPA config, and all internal links — hard to retrofit later.
-- **Content approach**: Separate markdown files per locale (`src/content/en/`, `src/content/uk/`). Long-form marketing copy doesn't fit i18next's key-value model.
+- **Content approach**: Separate markdown files per locale — English at `src/content/`, Ukrainian at `src/content/uk/`. Long-form marketing copy doesn't fit i18next's key-value model.
 - **Shared UI chrome**: Build script can read from existing `locales/*/common.json` for nav/footer/CTA button labels that appear on both landing pages and in the app, avoiding duplication.
 - **`hreflang` tags**: Every page needs `<link rel="alternate" hreflang="..." href="...">` cross-references so Google serves the right locale.
 - **`<html lang="...">`**: Set per-page at build time, not toggled by JS.

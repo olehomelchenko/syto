@@ -130,7 +130,7 @@ Key characteristics:
 
 - **Implementation**: `src/core/expression-parser.ts`, `src/core/ast-validator.ts`, `src/core/ast-interpreter.ts`
 - **Function implementations**: `src/core/functions/` (organized by category: date, math, string, regex, json, type)
-- **Tests**: `src/core/expression-parser.test.ts`, `src/core/ast-validator.test.ts`, `src/core/ast-interpreter.test.ts`
+- **Tests**: `src/core/expression-parser.test.ts`, `src/core/ast-validator.test.ts`, `src/core/interpreter-operators.test.ts`, `src/core/interpreter-functions.test.ts`, `src/core/interpreter-date-functions.test.ts`
 - **Design**: See [docs/DECISIONS.md](DECISIONS.md) §1 for architecture rationale
 - **Function Documentation**: See [FUNCTION-DOCS-SYSTEM.md](FUNCTION-DOCS-SYSTEM.md) for auto-generated function reference and documentation system
 
@@ -140,7 +140,7 @@ Key characteristics:
 
 The `ExpressionEditor` component (`src/app/components/ExpressionEditor.tsx`) provides a CodeMirror 6-based multi-line editor for formulas used by Derive, Filter, and Conditional dialogs. Grows with content up to a max height, then scrolls.
 
-- **Syntax highlighting**: `src/core/expression-language.ts` — StreamLanguage tokenizer that recognizes functions, column names, bracket notation, strings, numbers, operators, and keywords
+- **Syntax highlighting**: `src/app/services/expression-language.ts` — StreamLanguage tokenizer that recognizes functions, column names, bracket notation, strings, numbers, operators, and keywords
 - **Autocomplete**: Column names (shown in `[brackets]`, highest priority), function names with signatures from `src/schemas/functions.json`, and keywords (`true`, `false`, `null`, `and`, `or`, `not`). Context-aware: functions are boosted by column types in scope (category → type mapping in `expression-language.ts`) and expression context (`filter` boosts comparison functions, `derive`/`conditional` boost transform functions). Dropdown rows are color-tinted by type (blue for columns, brown for functions) via `:has()`-based CSS on CodeMirror icon classes.
 - **Controlled component**: Bidirectional sync between CodeMirror and Preact signals, with an `isSyncing` guard to prevent infinite update loops. See DEVELOPMENT-PATTERNS.md §2.3 for details.
 - **Validation**: Real-time via `useSignalEffect` — parses, validates, and updates error signals with debounced preview computation (150ms)
@@ -153,7 +153,7 @@ Expression dialogs also include static inline help (examples, operator lists, fu
 Wraps **Arquero** to provide a consistent interface for applying declarative transformations. It handles both standard Arquero verbs and custom logic for complex operations like delimiter-based splitting and regex extraction.
 
 - **Implementation**: `src/core/transforms.ts`
-- **Tests**: `src/core/transforms.test.ts`
+- **Tests**: `src/core/transforms-*.test.ts` — one file per transform family
 - **Reference**: See [docs/arquero/](arquero/) for Arquero usage patterns
 
 #### Type Converter
@@ -261,8 +261,6 @@ The core engine is fully portable — no browser APIs, no Preact dependency. Use
 | `schema-engine.ts`              | Type inference and schema propagation                                                       |
 | `type-converter.ts`             | Column type conversion with error cells                                                     |
 | `eda-engine.ts`                 | Statistical profiling and column analysis                                                   |
-| `charts.ts`                     | Vega-Lite specification generator                                                           |
-| `vega-themes.ts`                | Theme configurations for visualizations                                                     |
 | `workflow-v2.ts`                | Portable workflow format: types, validation, name translation, topological sort             |
 
 **Transforms Module** (`transforms/`):
@@ -323,6 +321,8 @@ functions/
 - `PersistenceService.ts` — Persistence coordination (wraps infrastructure/storage)
 - `NameService.ts` — Global name uniqueness enforcement for sources and models
 - `DependencyService.ts` — Dependency graph, staleness tracking, topological sort, model chaining helpers
+- `charts.ts` — Vega-Lite specification generator; renders into a DOM container through vega-embed, which is why it sits here and not in core
+- `vega-themes.ts` — Theme configurations for visualizations, read by `charts.ts` alone
 
 **Infrastructure** (`infrastructure/`):
 
@@ -502,9 +502,9 @@ Dialog components are rendered directly in `App.tsx`'s slide panel/modal shells 
 - **Univariate Charts**: Boxplots, Histograms, Categorical Bar charts, and Temporal Area charts for single-column EDA.
 - **Bivariate Charts**: Scatter plots, Grouped Bar charts, Line-over-time, and Heatmaps for cross-column relationship discovery. Pairing logic in `src/core/bivariate.ts` suggests partners based on column types; `ChartsEngine` renders both full-size and thumbnail variants (via `options.thumbnail`).
 - **Smart Chart Defaults**: `selectChartDefaults()` in `eda-engine.ts` picks the initial chart view based on data characteristics (e.g., integers with <10 unique values default to categorical, skewed distributions default to histogram).
-- **Field Name Escaping**: Vega-Lite treats `.`, `[`, `]` in field names as nested property accessors. All user-supplied column names must go through `escapeVegaField()` in `charts.ts` — never pass raw column names to `field:` in specs.
+- **Field Name Escaping**: Vega-Lite treats `.`, `[`, `]` in field names as nested property accessors. All user-supplied column names must go through `escapeVegaField()` in `src/app/services/charts.ts` — never pass raw column names to `field:` in specs.
 - **Chart Interaction**: Two Vega patterns are in use — `params` selections + `view.addSignalListener` (histogram brush) for declarative selections, and `view.addEventListener('click', (event, item) => item.datum)` (categorical bar) when you need raw click + datum access. Interactive EDA charts must route selections through `AppStore.selectedCell` + `cellToolbarPos` to reuse `CellToolbar` — see [UX-SPECIFICATION.md](UX-SPECIFICATION.md) §7.3.
-- **Implementation**: `src/core/charts.ts`, `src/core/vega-themes.ts`, `src/core/bivariate.ts`
+- **Implementation**: `src/app/services/charts.ts`, `src/app/services/vega-themes.ts`, `src/core/bivariate.ts`
 - **Theming**: See [UX-SPECIFICATION.md](UX-SPECIFICATION.md) §1.2 for theme system details
 
 ### 6.4 Dialog System Architecture
@@ -593,8 +593,8 @@ Tests are written in **TypeScript** using **Vitest** for native runner support a
 
 - **Expression Parsing**: `src/core/expression-parser.test.ts`
 - **Security & Arity**: `src/core/ast-validator.test.ts`
-- **Execution**: `src/core/ast-interpreter.test.ts`
-- **Transformation Engine**: `src/core/transforms.test.ts`
+- **Execution**: `src/core/interpreter-operators.test.ts`, `src/core/interpreter-functions.test.ts`, `src/core/interpreter-date-functions.test.ts`
+- **Transformation Engine**: `src/core/transforms-*.test.ts`
 - **Propagation**: `src/core/schema-engine.test.ts`
 - **Integration**: `src/core/integration.test.ts` (end-to-end pipelines)
 

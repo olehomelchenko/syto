@@ -1,91 +1,40 @@
-# Claude Context - Syto Project
+# Claude Context — Syto
 
-See @AGENTS.md for project overview, security requirements, codebase orientation, and AI developer protocol.
+@AGENTS.md
 
----
+Everything about this project — the overview, the security requirements, the
+codebase map, the AI Developer Protocol, the documentation index, the gates and
+the skills — is in `AGENTS.md`, which the line above loads. This file holds only
+what is true of Claude Code and of no other agent. **A fact stated in both files
+is a fact that will diverge: put it in `AGENTS.md`.**
 
-## Documentation Index
+## What this repository runs against a Claude Code session
 
-### Project Vision
+Registered in `.claude/settings.json`. Full description, including what each one
+refuses and why: [docs/HARNESS.md](docs/HARNESS.md).
 
-- **[SOUL.md](SOUL.md)**: Project philosophy, core values, and design principles — _read this first_
+- **`PostToolUse` on Edit|Write → `.claude/hooks/house-rules.sh`** — refuses an
+  edit that breaks an absolute ban (`eval`, `new Function`, a preact import in
+  `src/core/`). The refusal names the replacement, so fix the edit rather than
+  asking what to do.
+- **`PostToolUse` on Edit|Write → `.claude/hooks/markers.sh`** — reports the
+  `// TODO(YYYY-MM-DD):` markers the edited file carries, once per file per
+  session. It advises and never refuses. **Answer it**: each marker is either
+  fired — act on it in this diff or queue it — or not yet, and say which.
+- **`Stop` → `.claude/hooks/turn-end-checks.sh`** — runs typecheck and the suite
+  and holds the turn open while either fails. It runs once per distinct source
+  state, so a turn that changed no source pays nothing.
 
-### Core Specifications
+Every one of these has a script twin under `scripts/` that CI runs, so an agent
+that is not Claude Code meets the same refusal at the build. The hook adds only
+the moment.
 
-- **[SPECIFICATION.md](docs/SPECIFICATION.md)**: Technical architecture, codebase map, and implementation details
-- **[DATA-SPECIFICATION.md](docs/DATA-SPECIFICATION.md)**: Data structures, transform format, expression syntax, and persistence
-- **[UX-SPECIFICATION.md](docs/UX-SPECIFICATION.md)**: UI/UX design guidelines, component patterns, and theming system
-- **[UI-VOCAB.md](docs/UI-VOCAB.md)**: UI terminology, design vocabulary, and recommended patterns for UI work
-- **[FUTURE-PROOFING.md](docs/FUTURE-PROOFING.md)**: Schema evolution constraints and persistence compatibility
+## Slash commands
 
-### Architecture Review
+The skills in `.claude/skills/` run as slash commands here; `AGENTS.md` lists
+what each is for. `/alignment` and `/release` are marked
+`disable-model-invocation: true` and start only when the user types them —
+except that `/wrap-up` runs `/alignment` as a subagent, which reads the file
+directly and is not blocked by the flag.
 
-- **[ARCHITECTURE-REVIEW.md](docs/ARCHITECTURE-REVIEW.md)**: Critical review of extensibility friction — prioritized findings and recommendations
-
-### Development Guides
-
-- **[DEVELOPMENT-PATTERNS.md](docs/DEVELOPMENT-PATTERNS.md)**: How to add transforms, testing patterns, state management conventions
-- **[TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md)**: Testing principles, diagnostic questions, failure modes, and audit protocol — _read before adding or evaluating tests_
-- **[I18N-GUIDE.md](docs/I18N-GUIDE.md)**: Internationalization setup — adding languages, namespaces, plural rules, common patterns
-- **[FUNCTION-DOCS-SYSTEM.md](docs/FUNCTION-DOCS-SYSTEM.md)**: Auto-generated function documentation system (JSDoc → markdown/JSON)
-- **[DEBUGGING.md](docs/DEBUGGING.md)**: CSS Module debugging and DevTools tips
-- **[BACKLOG.md](docs/BACKLOG.md)**: Active feature backlog (near-term planned work)
-- **[TRANSFORM-ARCHITECTURE-REVIEW.md](docs/TRANSFORM-ARCHITECTURE-REVIEW.md)**: Transform design analysis and improvement roadmap
-- **[MULTI-MODEL-ARCHITECTURE.md](docs/MULTI-MODEL-ARCHITECTURE.md)**: Dependency graph system, staleness tracking, and multi-model operations
-- **[DATE-STORAGE-ARCHITECTURE.md](docs/DATE-STORAGE-ARCHITECTURE.md)**: Date/datetime handling strategy, JavaScript Date pitfalls, and developer rules
-
-### Reference
-
-- **[docs/arquero/](docs/arquero/)**: Arquero library documentation (verbs, expressions, operators)
-- **[DECISIONS.md](docs/DECISIONS.md)**: Architecture Decision Records
-- **[docs/future/](docs/future/)**: Future roadmap documents (CLI, native app, monetization, example workflows)
-- **[CHANGELOG.md](docs/CHANGELOG.md)**: Historical record of completed features and improvements
-
----
-
-## Quick Reference
-
-| Topic                  | Where to Look                                                                                            |
-| ---------------------- | -------------------------------------------------------------------------------------------------------- |
-| Data structures        | [DATA-SPECIFICATION.md](docs/DATA-SPECIFICATION.md) §1-3                                                 |
-| Expression syntax      | [DATA-SPECIFICATION.md](docs/DATA-SPECIFICATION.md) §4                                                   |
-| Expression functions   | [FUNCTION-DOCS-SYSTEM.md](docs/FUNCTION-DOCS-SYSTEM.md)                                                  |
-| How transforms work    | [SPECIFICATION.md](docs/SPECIFICATION.md) §3, §5                                                         |
-| Adding new transforms  | [DEVELOPMENT-PATTERNS.md](docs/DEVELOPMENT-PATTERNS.md) §1                                               |
-| Architecture review    | [ARCHITECTURE-REVIEW.md](docs/ARCHITECTURE-REVIEW.md)                                                    |
-| Testing patterns       | [DEVELOPMENT-PATTERNS.md](docs/DEVELOPMENT-PATTERNS.md) §3                                               |
-| Testing strategy       | [TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md)                                                          |
-| State management       | [DEVELOPMENT-PATTERNS.md](docs/DEVELOPMENT-PATTERNS.md) §2                                               |
-| UI component patterns  | [UX-SPECIFICATION.md](docs/UX-SPECIFICATION.md) §3                                                       |
-| UI vocabulary & terms  | [UI-VOCAB.md](docs/UI-VOCAB.md)                                                                          |
-| Content & writing      | [CONTENT-GUIDELINES.md](docs/CONTENT-GUIDELINES.md)                                                      |
-| What's safe to change  | [FUTURE-PROOFING.md](docs/FUTURE-PROOFING.md)                                                            |
-| Date handling rules    | [DATE-STORAGE-ARCHITECTURE.md](docs/DATE-STORAGE-ARCHITECTURE.md)                                        |
-| Adding tool pages      | [DEVELOPMENT-PATTERNS.md](docs/DEVELOPMENT-PATTERNS.md) §10                                              |
-| Site structure         | [SPECIFICATION.md](docs/SPECIFICATION.md) §3.5                                                           |
-| CSS debugging          | [DEBUGGING.md](docs/DEBUGGING.md)                                                                        |
-| Architecture decisions | [docs/DECISIONS.md](docs/DECISIONS.md)                                                                   |
-| CLI & workflow v2      | [SPECIFICATION.md](docs/SPECIFICATION.md) §3.6, [DATA-SPECIFICATION.md](docs/DATA-SPECIFICATION.md) §7.2 |
-| Multi-model & chaining | [MULTI-MODEL-ARCHITECTURE.md](docs/MULTI-MODEL-ARCHITECTURE.md)                                          |
-| Versioning & release   | [DEVELOPMENT-PATTERNS.md](docs/DEVELOPMENT-PATTERNS.md) §11, [AGENTS.md](AGENTS.md) §Versioning          |
-| DuckDB experimental    | [DEVELOPMENT-PATTERNS.md](docs/DEVELOPMENT-PATTERNS.md) §12                                              |
-| Adding a setting       | [DEVELOPMENT-PATTERNS.md](docs/DEVELOPMENT-PATTERNS.md) §2.3                                             |
-| Project philosophy     | [SOUL.md](SOUL.md)                                                                                       |
-
----
-
-## Documentation Maintenance
-
-> **Important**: Keep this file stable. Avoid volatile details (specific counts, file lists, line numbers) that become outdated as the codebase evolves. Delegate specifics to the referenced documents below and update them instead.
-
-When editing project documentation:
-
-- **CLAUDE.md**: High-level orientation only. No specific file counts, component lists, or implementation details.
-- **AGENTS.md**: Shared project context for all AI tools. Keep in sync with CLAUDE.md shared sections.
-- **SPECIFICATION.md**: Technical architecture, codebase structure, implementation details.
-- **DATA-SPECIFICATION.md**: Data structures, transform schemas, expression syntax, persistence format.
-- **UX-SPECIFICATION.md**: UI patterns, component catalog, styling details.
-
----
-
-**End of Context**
+`.claude/agents/cold-reader.md` runs as a subagent.

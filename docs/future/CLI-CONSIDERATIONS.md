@@ -220,8 +220,11 @@ The `src/core/` directory was architecturally designed for portability from the 
 
 ### Must Exclude from CLI Bundle
 
-- `src/core/charts.ts` -- imports `vega-embed` (DOM rendering)
-- `src/core/expression-language.ts` -- imports `@codemirror/*` (editor support)
+Both modules moved out of `src/core/` on 2026-09-21, so the exclusion is now structural rather than
+a bundler setting:
+
+- `src/app/services/charts.ts` -- imports `vega-embed` (DOM rendering)
+- `src/app/services/expression-language.ts` -- imports `@codemirror/*` (editor support)
 
 ### Dependencies
 

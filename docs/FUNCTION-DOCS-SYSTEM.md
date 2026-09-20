@@ -102,7 +102,7 @@ Located at `src/schemas/functions.json`:
 
 **Current consumers:**
 
-- `src/core/expression-language.ts` — imports `functions.json` for autocomplete signatures in ExpressionEditor
+- `src/app/services/expression-language.ts` — imports `functions.json` for autocomplete signatures in ExpressionEditor
 - `src/app/components/FunctionReferenceDialog.tsx` — uses compiled markdown HTML for the full reference viewer
 
 ### 4. Documentation Viewer Component

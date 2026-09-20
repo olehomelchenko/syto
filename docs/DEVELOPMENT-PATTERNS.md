@@ -1245,13 +1245,13 @@ const FUNCTION_ARITY: Record<string, [number, number]> = {
 
 For new **syntax** (a new AST node type, keyword, or operator — not just a function), updates span five files. Miss one and either the runtime or the editor UX breaks silently.
 
-| File                                     | Role                                 | What to Add                                                                                                                            |
-| ---------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/core/expression-parser.ts`          | Preprocess + jsep → AST              | jsep plugin (`hooks.add('gobble-token', …)`) or `addBinaryOp`/`addUnaryOp`. If the node stores bare names, extend `restoreColumnNames` |
-| `src/core/ast-validator.ts`              | Whitelist + scope + arity            | Add the type to `ALLOWED_NODE_TYPES`; validate children; pass an extended schema array down if the node introduces locals              |
-| `src/core/ast-interpreter.ts`            | Evaluate AST against row data        | Add a `case` in `evaluateNode`. If the node introduces locals, build a new scope object — do not mutate `rowData`                      |
-| `src/core/expression-token-extractor.ts` | AST walk for editor chip/column list | Add a `case` so columns aren't double-counted and locals aren't reported as columns                                                    |
-| `src/core/expression-language.ts`        | CodeMirror tokenizer + autocomplete  | Add keywords to `KEYWORDS`/`OPERATOR_KEYWORDS` + a `KEYWORD_COMPLETIONS` entry                                                         |
+| File                                      | Role                                 | What to Add                                                                                                                            |
+| ----------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/core/expression-parser.ts`           | Preprocess + jsep → AST              | jsep plugin (`hooks.add('gobble-token', …)`) or `addBinaryOp`/`addUnaryOp`. If the node stores bare names, extend `restoreColumnNames` |
+| `src/core/ast-validator.ts`               | Whitelist + scope + arity            | Add the type to `ALLOWED_NODE_TYPES`; validate children; pass an extended schema array down if the node introduces locals              |
+| `src/core/ast-interpreter.ts`             | Evaluate AST against row data        | Add a `case` in `evaluateNode`. If the node introduces locals, build a new scope object — do not mutate `rowData`                      |
+| `src/core/expression-token-extractor.ts`  | AST walk for editor chip/column list | Add a `case` so columns aren't double-counted and locals aren't reported as columns                                                    |
+| `src/app/services/expression-language.ts` | CodeMirror tokenizer + autocomplete  | Add keywords to `KEYWORDS`/`OPERATOR_KEYWORDS` + a `KEYWORD_COMPLETIONS` entry                                                         |
 
 **Invariants to preserve:**
 

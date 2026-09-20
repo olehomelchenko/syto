@@ -179,7 +179,7 @@ i18n.use(initReactI18next).init({
 });
 ```
 
-**Step 3**: Update `src/core/ux-settings.ts`:
+**Step 3**: Update `src/app/infrastructure/ux-settings.ts`:
 
 ```typescript
 export interface UXSettings {
@@ -307,4 +307,4 @@ When translatable text wraps around `<code>` or other markup, extract only the n
 <code>results</code> ({t('importCsv.exampleIfJsonIs')} <code>{`{ "results": [...] }`}</code>)
 ```
 
-**i18n in portable core modules** — files under `src/core/` must not import `i18n` (they run in Node.js for the CLI, where no i18n runtime is configured). When a core module needs translated strings (e.g. chart tooltip titles), accept them as an options field and fall back to English defaults. The app-side caller builds the labels object from `t()` and passes it in. See `ChartOptions.labels` / `ChartLabels` in `src/core/charts.ts` and `buildChartLabels` in `src/app/components/eda/chart-labels.ts` for the pattern.
+**i18n in portable core modules** — files under `src/core/` must not import `i18n` (they run in Node.js for the CLI, where no i18n runtime is configured). `npm run lint:core` is the check: it typechecks core plus the CLI with the DOM removed. When a core module needs translated strings, accept them as an options field and fall back to English defaults. The app-side caller builds the labels object from `t()` and passes it in. See `ChartOptions.labels` / `ChartLabels` in `src/app/services/charts.ts` and `buildChartLabels` in `src/app/components/eda/chart-labels.ts` for the pattern — the charts engine now lives in the app layer because it renders into the DOM, and it keeps the parameterized-labels shape a core module owes.

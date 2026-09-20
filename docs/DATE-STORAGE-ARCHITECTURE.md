@@ -52,7 +52,7 @@ Transforms (strings throughout) → Persistence (strings) → Export (strings)
 | [`src/core/schema-engine.ts`](../src/core/schema-engine.ts)                       | Type inference via regex pattern matching on string values                        |
 | [`src/core/functions/date-functions.ts`](../src/core/functions/date-functions.ts) | Expression functions (`today`, `now`, `date_add`, etc.) — all return strings      |
 | [`src/core/ast-interpreter.ts`](../src/core/ast-interpreter.ts)                   | `parseToDate()` — internal string→Date conversion for computation only            |
-| [`src/core/storage.ts`](../src/core/storage.ts)                                   | `convertDatesForStorage()` — safety net at the persistence boundary               |
+| [`src/app/infrastructure/storage.ts`](../src/app/infrastructure/storage.ts)       | `convertDatesForStorage()` — safety net at the persistence boundary               |
 
 ### Key Invariant
 
