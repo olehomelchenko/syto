@@ -18,7 +18,13 @@ Determine the review scope using `git diff` (unstaged) and `git diff --staged` (
 
 1. **Git**: **NEVER** stage (`git add`) or commit (`git commit`) changes — this is the USER's responsibility. If the reviewed changes span multiple independent concerns (e.g. a feature + an unrelated fix, or a refactor + a new capability), suggest splitting them into separate commits and mention the logical boundaries.
 
-2. **Verification**: After changes, run `npm run typecheck` and/or `npm run build` to catch errors. If tests fail, fix the issue if straightforward; ask the user if non-trivial or ambiguous.
+2. **Verification**: After changes, run the gates and leave them green:
+
+   ```bash
+   npm run typecheck && npm test && npm run lint:core && npm run lint:house && npm run lint:todo && npm run lint:docs && npm run i18n:check
+   ```
+
+   Each one refuses a defect no reading catches: `lint:core` typechecks the portable slice with the DOM removed, `lint:house` refuses `eval` and a preact import in `src/core/`, `lint:todo` refuses an undated marker, `lint:docs` refuses a source path a document names that is not in the tree. If a gate fails, fix the issue if straightforward; ask the user if non-trivial or ambiguous.
 
 3. **Judgment**: If unsure or multiple approaches exist, ask the user before proceeding. When guidelines conflict, prefer in this order: SOUL.md philosophy > FUTURE-PROOFING.md compatibility > DEVELOPMENT-PATTERNS.md conventions > local cleanup. These instructions are not strictly prohibitive — if a guideline has valid reason to be bypassed, mention it in the summary.
 
@@ -32,19 +38,21 @@ Determine the review scope using `git diff` (unstaged) and `git diff --staged` (
 
 7. **Workarounds**: Flag code that works around a problem rather than solving it (e.g., `// HACK`, `// WORKAROUND`, silent catch-and-ignore, feature detection for internal bugs). If a workaround is justified (e.g., upstream bug, browser quirk, time constraint), ensure it has a comment explaining why and a reference to track resolution. If unjustified, replace it with a proper fix.
 
-8. **Pre-existing & out-of-scope issues**: Leave a breadcrumb in the code for anything you notice but don't fix. This includes:
+8. **Pre-existing & out-of-scope issues**: Leave a breadcrumb in the code for anything you notice but don't fix. **There is no such thing as "not my job" here** (`AGENTS.md` → AI Developer Protocol): a defect that predates the diff is still yours to record, because one maintainer means nobody else will find it and nothing will remember it. Reviewing a diff is when the surrounding code is open, which makes this the moment the recording costs least. This includes:
    - **Pre-existing patterns** in surrounding code (duplicated logic the new code follows, workarounds it builds on, missing abstractions it exposes).
    - **Observations arising from the current change** that you decide are out of scope (redundant logic the refactor exposes, naming drift, mildly leaky abstractions, benign-but-suboptimal patterns).
 
-   Mark these with a `// TODO:` comment at the relevant site, explaining _what_ could be improved and _why_. If the observation is important enough to mention in the summary, it's important enough to deserve a TODO at the code location too — otherwise the reader reviewing that code later has no way to find the context. Keep the TODO concise (1–3 lines) and include a pointer to the adjacent owner/contract when relevant (e.g. "see StepService.ts line ~246"). This leaves a trail for future work without scope-creeping the current review.
+   Mark these with a `// TODO(YYYY-MM-DD):` comment at the relevant site, explaining _what_ could be improved and _why_. The date is today's, and `npm run lint:todo` refuses an undated marker — the census cannot triage a deferral it cannot age. If the observation is important enough to mention in the summary, it's important enough to deserve a TODO at the code location too — otherwise the reader reviewing that code later has no way to find the context. Keep the TODO concise (1–3 lines) and include a pointer to the adjacent owner/contract when relevant (e.g. "see StepService.ts line ~246"). This leaves a trail for future work without scope-creeping the current review.
 
 9. **PWA / Offline**: If changes add, remove, or change external resource URLs (CDN scripts, fonts, APIs), verify they are covered by a `runtimeCaching` rule in `vite.config.ts`. If a previously bundled asset moves to a CDN, this is a potential offline regression.
 
 10. **Internationalization (i18n)**: All user-facing strings must use i18n. Flag any new hardcoded English strings in UI components (use `useTranslation()` hook), handlers, or services (use `i18n.t()` with namespace option). New keys must be added to both `src/i18n/locales/en/` and `src/i18n/locales/uk/` JSON files. Run `npm run i18n:check` to verify key parity across locales. See [DEVELOPMENT-PATTERNS.md §9](docs/DEVELOPMENT-PATTERNS.md) for patterns.
 
+11. **Module placement**: `src/core/` is portable — it runs in Node under the CLI with no DOM, no Preact, and no editor or rendering library. `npm run lint:core` proves the type half. The half it cannot prove is placement: a module whose only importers are under `src/app/` belongs in `src/app/`, whatever its types say. `expression-language.ts` sat in core for months passing every check, because CodeMirror's DOM dependency hides behind `skipLibCheck`. Flag a new module in `src/core/` that no core module and no CLI path imports, and flag a core module the diff gives its first app-only dependency.
+
 ### Output
 
-11. **Summary**: After performing the instructions, respond with a summary of changes: choices made due to these instructions, choices where multiple approaches existed, and any non-obvious architectural choices or assumptions the user should know about but might not notice from the diff alone. If the summary mentions an observation that you chose not to fix (per rule #8), confirm that a `// TODO:` breadcrumb was placed at the relevant code site so the context is recoverable later.
+12. **Summary**: After performing the instructions, respond with a summary of changes: choices made due to these instructions, choices where multiple approaches existed, and any non-obvious architectural choices or assumptions the user should know about but might not notice from the diff alone. If the summary mentions an observation that you chose not to fix (per rule #8), confirm that a `// TODO:` breadcrumb was placed at the relevant code site so the context is recoverable later.
 
 ---
 
