@@ -5,9 +5,9 @@
 
 import { StreamLanguage, StringStream } from '@codemirror/language';
 import { CompletionContext, CompletionResult, Completion } from '@codemirror/autocomplete';
-import { ALLOWED_FUNCTIONS } from './ast-validator';
-import type { ColumnSchema, ColumnType } from './schema-engine';
-import functionDocs from '../schemas/functions.json';
+import { ALLOWED_FUNCTIONS } from '../../core/ast-validator';
+import type { ColumnSchema, ColumnType } from '../../core/schema-engine';
+import functionDocs from '../../schemas/functions.json';
 
 /** Expression context determines which function categories get boosted */
 export type ExpressionContext = 'filter' | 'derive' | 'conditional';

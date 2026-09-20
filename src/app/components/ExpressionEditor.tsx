@@ -14,7 +14,7 @@ import {
   createExpressionLanguage,
   createExpressionCompletion,
   type ExpressionContext,
-} from '../../core/expression-language';
+} from '../services/expression-language';
 import type { ColumnSchema } from '../../core/schema-engine';
 
 export interface ExpressionEditorProps {

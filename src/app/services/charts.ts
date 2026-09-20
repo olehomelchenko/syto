@@ -1,7 +1,7 @@
 import vegaEmbed from 'vega-embed';
 import { sytoTheme, bluesTheme } from './vega-themes';
-import { isConversionError } from './type-converter';
-import type { BivariateSuggestion } from './bivariate';
+import { isConversionError } from '../../core/type-converter';
+import type { BivariateSuggestion } from '../../core/bivariate';
 
 /**
  * Syto Charts Engine

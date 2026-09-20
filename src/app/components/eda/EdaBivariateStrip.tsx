@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { useTranslation } from 'preact-i18next';
 import { AppStore } from '../../stores/AppStore';
-import { ChartsEngine } from '../../../core/charts';
+import { ChartsEngine } from '../../services/charts';
 import type { BivariateSuggestion } from '../../../core/bivariate';
 import styles from './EdaBivariateStrip.module.css';
 

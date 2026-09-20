@@ -1,4 +1,4 @@
-import type { ChartLabels } from '../../../core/charts';
+import type { ChartLabels } from '../../services/charts';
 
 export function buildChartLabels(t: (key: string) => string): ChartLabels {
   return {

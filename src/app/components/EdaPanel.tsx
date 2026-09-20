@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'preact/hooks';
 import { useSignal } from '@preact/signals';
 import { useTranslation } from 'preact-i18next';
 import { AppStore } from '../stores/AppStore';
-import { ChartsEngine, BoxPlotStats } from '../../core/charts';
+import { ChartsEngine, BoxPlotStats } from '../services/charts';
 import { buildChartLabels } from './eda/chart-labels';
 import { CategoricalStat, selectChartDefaults } from '../../core/eda-engine';
 import { SchemaEngine } from '../../core/schema-engine';
