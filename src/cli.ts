@@ -40,7 +40,10 @@ Usage:
   syto schema <file> [options]           Inspect file schema
 
 Options for run:
-  --bind name=file   Bind a source to a data file (repeatable)
+  --bind name=file   Bind a source to a data file (repeatable).
+                     A relative path resolves against the WORKFLOW file's
+                     directory, not the current one, so a workflow and its
+                     data travel together. Use an absolute path otherwise.
   --output, -o path  Output file or directory
   --json             Output JSON instead of CSV
   --strict           Treat warnings as errors

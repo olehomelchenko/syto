@@ -190,6 +190,12 @@ The browser export constructs model keys as `rootSourceName/modelName`, where `r
 
 ### Core Commands
 
+**A relative bind path resolves against the workflow file's directory, not the
+shell's** (`src/cli/run-command.ts`). A workflow and the data beside it therefore
+travel together, and `syto run ~/flows/sales.json --bind orders=orders.csv` reads
+`~/flows/orders.csv` whatever directory it is run from. Pass an absolute path to
+bind data that does not live beside the workflow.
+
 ```bash
 # Run a workflow, binding sources to files
 syto run workflow.json --bind orders=orders.csv --bind customers=customers.csv
