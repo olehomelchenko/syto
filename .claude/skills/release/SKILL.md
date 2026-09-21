@@ -65,7 +65,7 @@ If the current month already has entries, add a version separator:
 Before cutting the tag, scan the hand-maintained user-facing docs against the changes landing in this release:
 
 - `src/content/getting-started.md` (+ UK) — still describe the three-tab ribbon, current import sources, workflow, and tips correctly?
-- `src/content/shortcuts.md` (+ UK) — did any PR in this range touch `keyboard-handlers.ts`, `EventRouter.ts`, `DataTable.tsx`, or add dialog-level keyboard handling? If yes, verify the list is complete.
+- `src/content/shortcuts.md` (+ UK) — did any commit in this range touch `src/app/handlers/core/keyboard-handlers.ts`, `src/app/orchestration/EventRouter.ts`, `src/app/components/DataTable.tsx`, or add dialog-level keyboard handling? If yes, verify the list is complete **and still accurate** — v0.5.0 found `Delete` documented as "Remove the last step" months after the fix that made it remove the viewed step. Pass the paths to `git log` exactly as written here; an almost-right path returns an empty log, which reads as "no drift".
 - `src/content/about.md` (+ UK) — any feature descriptions or counts worth refreshing?
 
 The `/alignment` skill should catch per-PR drift; this is the net for accumulated drift across many PRs since the last tag. If anything is stale, update it **before** creating the version bump commit — the release's CHANGELOG entry is not the place to quietly include doc fixes.
@@ -79,7 +79,13 @@ git tag v{version}
 git push --tags
 ```
 
-Remind the user that pushing to `main` triggers the GitHub Actions deploy automatically.
+**The website is Cloudflare Pages, not GitHub Pages and not GitHub Actions.** The `syto` Pages project builds Production from **`main`** and Preview from `dev`, so a push to `dev` publishes a preview URL and nothing else. Publishing means merging `dev` into `main` and pushing `main`. Verify with:
+
+```bash
+npx wrangler pages deployment list --project-name syto | grep Production
+```
+
+`npm run deploy` (`gh-pages -d dist`) is dead and must not be used: no `gh-pages` branch exists on the remote, and nothing serves one. Removing that script is queued in `docs/BACKLOG.md`.
 
 ## Rules
 

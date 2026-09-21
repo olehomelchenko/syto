@@ -95,6 +95,14 @@ Tests grab it via `screen.getByText('Match type:').nextElementSibling`, which is
 
 `validation-engine.ts` uses `errors.validation.invalid.pattern`. The unused key still sits in `errors.json` but never fires.
 
+### `npm run deploy` is dead and points at nothing
+
+`package.json` carries `"deploy": "gh-pages -d dist"` with a `predeploy` build. Running it would push `dist/` to a `gh-pages` branch that **does not exist on the remote**, and nothing serves one. The website is Cloudflare Pages: the `syto` project builds Production from `main` and Preview from `dev` (verified 2026-09-21 with `npx wrangler pages deployment list --project-name syto`). GitHub Pages is separately configured against `main` at `/` and would serve the unbuilt source tree, so it is stale too.
+
+The danger is that the script looks like the deploy path. A session told to "deploy" finds it in `package.json`, runs it, sees it succeed, and reports the site updated — while syto.app has not moved.
+
+Fix: delete `deploy` and `predeploy` from `package.json`, drop the `gh-pages` devDependency, and turn off the unused GitHub Pages configuration. The real procedure now lives in `.claude/skills/release/SKILL.md` step 6.
+
 ### End-to-end verification: 34 of 38 transforms never driven
 
 `/verify` can drive the real app headless as of 2026-09-21, and the first round found two user-facing bugs in a morning — both now above this line. The rest of the surface has never been exercised against a real dataset.

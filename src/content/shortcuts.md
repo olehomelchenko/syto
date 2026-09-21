@@ -16,7 +16,7 @@ Quick reference for keyboard shortcuts available in Syto. Shortcuts are active w
 | `Ctrl+Z` / `Cmd+Z`             | Undo last pipeline operation    |
 | `Ctrl+Shift+Z` / `Cmd+Shift+Z` | Redo last undone operation      |
 | `Ctrl+S` / `Cmd+S`             | Download workflow as JSON       |
-| `Delete`                       | Remove the last step            |
+| `Delete`                       | Remove the step you are viewing |
 | `Escape`                       | Close dialog or clear selection |
 
 ## Data Import

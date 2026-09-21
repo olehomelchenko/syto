@@ -4,6 +4,24 @@ Historical record of completed features and improvements, organized chronologica
 
 ---
 
+## September 2026
+
+### v0.5.0
+
+- **`let` bindings in expressions** — Name an intermediate value once and reuse it inside the same expression, instead of repeating a subexpression. Available in Filter, Derive and Conditional; reference at `src/content/functions/let-bindings.md`.
+- **Bracketed column names are parsed properly** — `[Column Name]` now goes through a native jsep plugin rather than a pre-pass, so names carrying spaces, slashes and hyphens (`[Country/Region]`, `[Sub-Category]`) parse the same way everywhere.
+- **Click an EDA bar to act on it** — Categorical bars in the EDA panel open the cell toolbar, so a category goes straight to a filter.
+- **Preview errors are shown** — Aggregate, Describe and Pivot report a failed preview in the dialog instead of leaving it blank.
+- **Large-file warning** — A file over 100 MB now warns before the import dialog opens, rather than after the browser has struggled with it.
+- **`Delete` removes the step you are viewing** — It always removed the last step, whatever was on screen. The keyboard reference said so too and has been corrected in both locales.
+- **Joins and group-by pin their null semantics** — All-null aggregate output normalises to null (SOUL §7), and a join against a schema-less right table returns a well-defined empty result instead of throwing. Phase 1 ReDoS protection added to user-supplied patterns.
+- **Collision guards for aggregate-style transforms** — split, spread and unroll name temp columns through `pickUniqueName`, so a column called `value` in the source no longer collides with one the transform makes.
+- **Ukrainian coverage** — EDA chart tooltips, column-editor validation and the sidebar step count are now translated.
+- **Faster import** — Dropped a defensive deep clone of source data on every import.
+- **Internal** — The test suite grew to 2,576 tests across 151 files, with property-based coverage and an adversarial fixture library. An agent harness landed: refusing and advisory hooks, seven `lint:*` gates, continuous integration, and the `/wrap-up` and `/verify` skills (`docs/HARNESS.md`). `charts.ts`, `vega-themes.ts` and `expression-language.ts` moved out of `src/core/`, which is now provably portable — `npm run lint:core` typechecks it with the DOM removed.
+
+---
+
 ## April 2026
 
 ### v0.4.1
