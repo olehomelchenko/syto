@@ -43,6 +43,26 @@ Three `Papa.parse(file, …)` sites in `src/app/handlers/import/import-handlers.
 
 Ordered by user-visibility, then by ease of fix.
 
+### Leading zeros are destroyed on import, silently
+
+Type inference reads a column of digit strings as `integer`, so an identifier that is not a number loses its leading zeros with no warning. Measured against `public/datasets/superstore.csv` on 2026-09-21 by driving the real import: **449 of 10,194 rows** come out damaged — `05401` → `5401` (Burlington, Vermont), `07036` → `7036` (Linden, New Jersey), `02151` → `2151` (Revere, Massachusetts). The column is named `Postal Code`.
+
+This is the worst class of defect this tool can have: the data is wrong, the user is not told, and nothing downstream can recover the original. It reaches the CLI too, since inference is `src/core/schema-engine.ts` and both engines call it.
+
+Three directions, and the choice is a design call:
+
+1. **Never widen a leading-zero string to a number.** Cheap, no UI, catches the whole class. **It is not free**, and the site says why: the branch at `src/core/schema-engine.ts:170` exists so that splitting `"2024-01-15"` gives an integer month from `"01"`. A blanket rule re-types that as string. Whoever takes this decides where the line sits — a length threshold, a uniform-width test, or a flag the split transform passes that a CSV import does not.
+2. **Keep it, but warn.** Infer as today and raise a notification naming the column and the affected row count, with a one-click "keep as text".
+3. **Make it reviewable.** The Import CSV dialog already shows a preview and already knows the inferred types; let the user override a column's type there before the import lands.
+
+Option 1 is the floor and should ship whatever else does. `SOUL.md` promises the user can see exactly what happened to their data, and a silent narrowing breaks that promise.
+
+### Import Preview counts the preview, not the file
+
+The Import CSV dialog's preview header reads `99 rows, 21 columns (first 99 rows shown)` for `superstore.csv`, which has 10,194 rows. The parenthetical is accurate and the leading number is not: `99 rows` is the size of the slice being shown, presented where a reader looks for the size of the file they are importing. Seen 2026-09-21 driving the real import. The import itself is correct — the success notification says 10,194.
+
+Fix: say what the file holds, then what is shown — `10,194 rows, 21 columns (first 99 shown)`. If the row count is not known before the full parse, say so rather than printing the slice size as the total.
+
 ### `ImputeDialog` preview ignores `currentData`
 
 Its "Strategy preview" panel runs against a hard-coded 8-row sample table with nulls regardless of real data. Users think they're previewing against their data; they aren't.
@@ -74,6 +94,30 @@ Tests grab it via `screen.getByText('Match type:').nextElementSibling`, which is
 ### Dead i18n key `errors.validation.invalid.regexPattern`
 
 `validation-engine.ts` uses `errors.validation.invalid.pattern`. The unused key still sits in `errors.json` but never fires.
+
+### End-to-end verification: 34 of 38 transforms never driven
+
+`/verify` can drive the real app headless as of 2026-09-21, and the first round found two user-facing bugs in a morning — both now above this line. The rest of the surface has never been exercised against a real dataset.
+
+Coverage after round 1, measured 2026-09-21:
+
+| Surface                                                   | Driven | Total |
+| --------------------------------------------------------- | ------ | ----- |
+| Transform kinds (`src/core/transforms/handlers/index.ts`) | 4      | 38    |
+| Expression functions (`src/schemas/functions.json`)       | 0      | 73    |
+| Dialogs (`src/app/components/*Dialog.tsx`)                | 4      | 43    |
+
+Round 1 drove `types`, `filter`, `derive` and `aggregate`, each checked against numbers computed from `public/datasets/superstore.csv` independently of the app, plus a browser-versus-CLI comparison of one exported workflow. The recipe, the fixture's ground truth and every quirk that cost a failed run are in `.claude/skills/verify/SKILL.md`.
+
+The remaining rounds, ranked by expected bug yield:
+
+1. **The other 34 transforms** — `join`, `pivot`, `fold`, `spread`, `window`, `unroll`, `dedupe`, `impute`, `split`, `lookup` and the rest. Biggest surface, shared by both engines, and every result is checkable against the fixture.
+2. **Round-trip and persistence** — reload, undo/redo, Steps-panel editing, export to CSV and re-import. Same data-loss family as the leading-zeros bug, which is where the damage that matters lives.
+3. **The 73 expression functions** — Superstore exercises the date, math, text and regex families. Audit finding F11 already reports the Ukrainian function documentation as corrupted, so the generated docs are worth checking beside the functions.
+4. **Multi-model dependencies** — staleness tracking and model chaining. Complex state, thin coverage.
+5. **EDA and charts** — visual output, the weakest to assert automatically. Last, and partly by screenshot.
+
+Each round rewrites the table above rather than appending to it.
 
 ---
 

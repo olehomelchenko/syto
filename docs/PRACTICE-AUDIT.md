@@ -14,9 +14,15 @@ baseline: `npm run typecheck` → clean. `npm test` → **151 files / 2576 tests
 `npx madge` → 511 files, 5 cycles. `npx jscpd --min-tokens 50` → 495 clones, 6.70% duplicated.
 `npx knip` → ran with no config, so its output needed manual triage.
 
-Exact figures below are a frozen snapshot, not live numbers. This document follows the
-[ARCHITECTURE-REVIEW.md](ARCHITECTURE-REVIEW.md) format: each finding carries a friction type, a
-fix, and a status.
+Exact figures below are a frozen snapshot, not live numbers, **and so are the paths**. A module
+this audit names may have moved since; each finding's **Status** line carries what changed. The
+one rename so far: `src/core/charts.ts`, `src/core/vega-themes.ts` and
+`src/core/expression-language.ts` all moved to `src/app/services/` on 2026-09-21 (finding F1).
+`npm run lint:docs` skips this file by name for exactly this reason — every other document is
+held to live paths, and this one is history.
+
+This document follows the [ARCHITECTURE-REVIEW.md](ARCHITECTURE-REVIEW.md) format: each finding
+carries a friction type, a fix, and a status.
 
 ---
 

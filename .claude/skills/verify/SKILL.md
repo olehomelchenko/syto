@@ -113,6 +113,98 @@ wrong or would have got wrong.
   cold-loads WebAssembly in a worker — seconds, not milliseconds. Wait for the
   DOM state you expect, never a fixed timeout.
 
+### Reading state: `sytoDebug.snapshot(n)`
+
+`window.sytoDebug` is set up at boot (`src/app/utils/debug-helpers.ts`). Its
+`store` field is the whole `AppStore`, which is right for a human at a console
+and wrong for a driver: `page.evaluate` drops anything that does not survive
+`structuredClone`, so reaching for the wrong accessor returns `{}` or `null`,
+which reads as "the app is empty" rather than "I asked wrong". That cost two
+runs while this recipe was written — `columns` is a `string[]` and not column
+objects, and `currentData` is a plain row array with no Arquero methods.
+
+**So read state through `snapshot()`, which is the contract**: every value is a
+string, a number, a boolean or an array of those.
+
+```js
+const snap = (n = 0) => page.evaluate((k) => window.sytoDebug.snapshot(k), n);
+await page.waitForFunction(() => window.sytoDebug.snapshot().hasData === true);
+```
+
+It carries `hasData`, `sources`, `models`, `activeSourceId`, `activeModelId`,
+`rowCount`, `columns`, `steps` (the transform kind of each step), `types`,
+`isTransforming`, `activeDialog`, `notifications`, and `rows` — the first `n`
+rows, `0` by default because 10k rows crossing the bridge on every poll makes
+the poll the slowest thing in the run. Widen the function rather than teaching a
+second driver to walk the store.
+
+### The ribbon and the transform dialogs
+
+- **Ribbon tabs carry `role="tab"`, not `role="button"`** (`src/app/components/AppHeader.tsx`).
+  `getByRole('button', { name: 'Rows' })` times out against a button that is
+  plainly on screen. Use `getByRole('tab', { name: 'Rows', exact: true })`.
+  The three tabs are `Rows`, `Columns`, `Table`, and all three are disabled
+  until data is loaded.
+- **The verbs are buttons inside the tab.** `Rows` holds Filter, Sort,
+  Duplicates, Slice rows, Sample, Headers. `Table` holds **Group by** — not
+  "Aggregate", which is the step's name in the workflow and matches no control.
+- **Filter and Derive are CodeMirror**, not `<input>` or `<textarea>`. Click
+  `.cm-content` and use `page.keyboard.insertText(...)`; `fill()` does not work
+  on a contenteditable editor. Derive's output-name field is an ordinary
+  `input[type=text]`.
+- **Group by selects columns with clickable chips**, one button per column, not
+  a `<select>`. The dialog's first `<select>` is the aggregation row's column
+  picker and it is **disabled whenever the function is Count**, which needs no
+  column — `selectOption` on it times out, and that is correct behavior rather
+  than a defect.
+- **Confirm buttons repeat the verb**: the Filter dialog's confirm is also named
+  "Filter". Use `.last()` to reach the dialog's copy rather than the ribbon's.
+- **Importing a sample dataset is two dialogs.** "Import from URL" opens a
+  picker; clicking a dataset link opens a second dialog headed "Import CSV" with
+  a name field, a delimiter choice and a preview; that one's "Import" button is
+  what lands the data. A driver that stops after the first click waits forever
+  on `hasData`.
+
+### The fixture and its ground truth
+
+`public/datasets/superstore.csv` ships in the repository and is the fixture to
+reach for: 10,194 rows, 21 columns, with embedded quotes and commas in
+`Product Name`, two date columns, negative values in `Profit`, a slash in
+`Country/Region` and a hyphen in `Sub-Category`.
+
+Computed from the file with PapaParse on 2026-09-21, independent of the app —
+these are what an assertion compares against, never a number the app produced:
+
+| Question                              | Answer                                        |
+| ------------------------------------- | --------------------------------------------- |
+| Rows / columns                        | 10,194 / 21                                   |
+| `[Category] == 'Furniture'`           | 2,201                                         |
+| `[Sub-Category] == 'Chairs'`          | 634                                           |
+| `[Country/Region] == 'United States'` | 9,994                                         |
+| `[Profit] < 0`                        | 1,901                                         |
+| Furniture grouped by Region           | South 332 · Central 485 · East 649 · West 735 |
+| Distinct Order IDs                    | 5,111                                         |
+| Total Sales / Profit                  | 2,326,534.35 / 292,296.81                     |
+
+**Known bad on import:** 449 rows lose a leading zero from `Postal Code`, which
+infers as `integer` (`docs/BACKLOG.md` → "Leading zeros are destroyed on
+import"). Every other column infers correctly. A run that finds 449 damaged
+rows has reproduced a known defect, not found a new one.
+
+### Both engines, one workflow
+
+The strongest check this repository has: export the workflow from the browser
+and run the same file through the CLI. Nothing else asserts that the two engines
+agree, and they share `src/core/`.
+
+```bash
+npx tsx src/cli.ts run <workflow.json> --bind superstore=<ABSOLUTE path to the csv>
+```
+
+The bind path must be absolute unless the data sits beside the workflow — a
+relative one resolves against the **workflow file's** directory. Browser and CLI
+produced identical output for import → filter → group by on 2026-09-21.
+
 ### Evidence
 
 Listen for `pageerror` and `console` with `type() === 'error'` from the first

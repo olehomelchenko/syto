@@ -168,6 +168,13 @@ export const SchemaEngine = {
 
     // 3. Check for Numeric Strings (strings that parse cleanly as numbers)
     // Common after splitting date strings like "2024-01-15" -> ["2024", "01", "15"]
+    //
+    // This branch also destroys leading zeros on anything that is an identifier
+    // rather than a number: 449 of superstore.csv's 10,194 rows come out with a
+    // damaged postal code (05401 -> 5401), silently, in both the browser and the
+    // CLI. Measured 2026-09-21. The fix is ranked work with three options and a
+    // real tension against the date-split case above — see BACKLOG.md -> "Leading
+    // zeros are destroyed on import, silently". Read it before narrowing this.
     if (nonNullValues.every((v) => typeof v === 'string')) {
       // Check if all strings are valid numbers (not NaN, not empty after trim)
       const allNumericStrings = nonNullValues.every((v) => {
