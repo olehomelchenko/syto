@@ -150,6 +150,59 @@ export async function debugLogServiceWorkerStatus() {
 }
 
 /**
+ * One JSON-serializable picture of app state, for a driver outside the page.
+ *
+ * `sytoDebug.store` exposes every signal, which is right for a human at a
+ * console and wrong for `page.evaluate`: the bridge drops anything that does
+ * not survive `structuredClone`, so a driver that reaches for the wrong
+ * accessor gets `{}` or `null` and reads it as "the app is empty" rather than
+ * "I asked wrong". That happened twice while writing the /verify recipe —
+ * `columns` is a `string[]` and not column objects, and `currentData` is a
+ * plain row array with no Arquero methods on it.
+ *
+ * So this is the shape a driver reads, and it is a contract: every value here
+ * is a string, a number, a boolean, or an array of those. Widen it rather than
+ * teaching a second driver to walk the store.
+ *
+ * `rows` sampling stays small on purpose — a 10k-row dataset crossing the
+ * bridge on every poll makes the poll the slowest thing in the run.
+ *
+ * See docs/HARNESS.md -> The app's own verification surface.
+ */
+function debugSnapshot(sampleRows = 0) {
+  const data = AppStore.currentData.value;
+  const model = AppStore.activeModel.value;
+  const source = AppStore.activeSource.value;
+  const schema = AppStore.viewingSchema.value;
+
+  return {
+    hasData: AppStore.hasData.value,
+    sources: AppStore.sources.value.map((s: any) => ({ id: s.id, name: s.name })),
+    models: AppStore.models.value.map((m: any) => ({
+      id: m.id,
+      name: m.name,
+      sourceId: m.sourceId,
+      steps: m.steps?.length ?? 0,
+    })),
+    activeSourceId: source?.id ?? null,
+    activeModelId: model?.id ?? null,
+    rowCount: data?.length ?? 0,
+    columns: AppStore.columns.value.slice(),
+    // A step is a single-key object (DATA-SPECIFICATION §2). The key is the
+    // transform kind, which is what a driver asserts on.
+    steps: (model?.steps ?? []).map((step: any) => Object.keys(step)[0]),
+    types: (schema ?? model?.schema ?? []).map((c: any) => ({ name: c.name, type: c.type })),
+    isTransforming: AppStore.isTransforming.value,
+    activeDialog: AppStore.activeDialog.value ?? null,
+    notifications: AppStore.notifications.value.map((n: any) => ({
+      type: n.type,
+      message: n.message,
+    })),
+    rows: sampleRows > 0 && data ? JSON.parse(JSON.stringify(data.slice(0, sampleRows))) : [],
+  };
+}
+
+/**
  * Set up debug helpers on window object for console access
  */
 export function setupDebugHelpers() {
@@ -158,6 +211,7 @@ export function setupDebugHelpers() {
       page: debugLogCurrentPage,
       all: debugLogAllData,
       sw: debugLogServiceWorkerStatus,
+      snapshot: debugSnapshot,
       store: AppStore, // Expose AppStore for inspection
     };
     console.log(
@@ -168,6 +222,7 @@ export function setupDebugHelpers() {
     console.log('  sytoDebug.page() - Log current page data');
     console.log('  sytoDebug.all() - Log all data');
     console.log('  sytoDebug.sw() - Check service worker status');
+    console.log('  sytoDebug.snapshot(n) - JSON state picture, n sample rows');
     console.log('  sytoDebug.store - Access AppStore');
   }
 }
